@@ -1,11 +1,9 @@
 /**
- * Gemini CLI HUD — Daemon process
+ * Gemini CLI HUD — Daemon process (v3: DECSTBM bottom overlay)
  *
- * Runs in the background, receives hook events via Unix socket,
- * and renders the HUD at the terminal bottom using VT100 cursor
- * save/restore (DECSC/DECRC) — no Ink, no React, no terminal-specific APIs.
- *
- * Compatible with: Terminal.app, iTerm2, Tabby, WezTerm, Kitty, etc.
+ * Uses DECSTBM to reserve the bottom 2 terminal rows for the HUD.
+ * Gemini CLI's content and Ink UI scroll within the region above.
+ * When content fills the screen, the HUD is right below Gemini's UI.
  */
 
 import fs from 'fs';
@@ -13,6 +11,8 @@ import net from 'net';
 import { execSync } from 'child_process';
 
 const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const LOG_FILE = '/tmp/gemini-hud-debug.log';
+const HUD_HEIGHT = 2;
 
 // Context window sizes by model prefix (tokens)
 const MODEL_CONTEXT: Record<string, number> = {
@@ -70,89 +70,88 @@ function formatElapsed(startMs: number): string {
 
 // ─── Rendering ──────────────────────────────────────────────────────────────
 
-/**
- * Build the 2-line HUD string (no trailing newline on last line).
- * Line 1: separator
- * Line 2: model | context bar | tools
- */
 function buildHUD(cols: number): string {
   const { used, total } = state.tokens;
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
-  // Progress bar — scales with terminal width
-  const barWidth = Math.max(8, Math.min(20, Math.floor(cols / 8)));
+  const barWidth = Math.max(8, Math.min(20, Math.floor(cols / 10)));
   const filled = Math.round((pct / 100) * barWidth);
   const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
 
-  // Segments
-  const modelName = state.model.replace(/^models\//, '');
+  const modelName = state.model.replace(/^models\//, '').substring(0, 15);
   const elapsed   = formatElapsed(state.sessionStart);
   const usedK     = (used / 1_000).toFixed(0);
-  const totalM    = (total / 1_000_000).toFixed(0);
+  const totalM    = (total / 1_000_000).toFixed(1);
 
-  const segModel   = `\x1b[36;1m${modelName}\x1b[0m \x1b[90m${elapsed}\x1b[0m`;
+  const segModel   = `\x1b[35;1m${modelName}\x1b[0m \x1b[90m${elapsed}\x1b[0m`;
   const segContext = `ctx \x1b[32m${bar}\x1b[0m \x1b[1m${pct}%\x1b[0m \x1b[90m(${usedK}k/${totalM}M)\x1b[0m`;
 
   const toolEntries = Object.entries(state.tools);
   const segTools = toolEntries.length > 0
-    ? toolEntries.map(([n, c]) => `\x1b[33m${n}\x1b[0m×${c}`).join('  ')
+    ? toolEntries.map(([n, c]) => `\x1b[33m${n}\x1b[0m×${c}`).join(' ')
     : '\x1b[90midle\x1b[0m';
 
   const sep  = `\x1b[90m${'─'.repeat(cols)}\x1b[0m`;
-  const body = ` ${segModel}  \x1b[90m│\x1b[0m  ${segContext}  \x1b[90m│\x1b[0m  ${segTools}`;
+  const body = ` ${segModel} │ ${segContext} │ ${segTools}`;
+
+  // Compact fallback for narrow terminals
+  const visibleLen = body.replace(/\x1b\[[0-9;]*m/g, '').length;
+  if (visibleLen > cols) {
+    return `${sep}\n ${segModel} | ${pct}% | ${segTools}`;
+  }
 
   return `${sep}\n${body}`;
 }
 
-/**
- * Build the compact terminal title string (no ANSI colour codes).
- */
 function buildTitle(): string {
   const { used, total } = state.tokens;
   const pct   = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const short = state.model.replace(/^models\//, '').replace(/-preview$|-latest$/, '');
   const tools = Object.entries(state.tools).map(([n, c]) => `${n}×${c}`).join(' ') || 'idle';
-  return `[HUD] ${short} | ctx ${pct}% (${(used / 1000).toFixed(0)}k) | ${tools}`;
+  return `[HUD] ${short} | ${pct}% | ${tools}`;
 }
 
 /**
- * Write HUD to /dev/tty using cursor save/restore overlay.
- * The sequence is built as a single string and written in one call
- * to minimise the race-condition window with Gemini CLI's Ink renders.
+ * Write HUD to /dev/tty.
+ *
+ * DECSTBM reserves the bottom 2 rows (rows-1, rows) outside the scrolling
+ * region. All terminal content (including Gemini CLI's Ink) scrolls within
+ * rows 1..(rows-2). The HUD is painted at rows-1 and rows using cursor
+ * save/restore so it never disturbs the cursor position.
  */
 function writeHUD(): void {
   const { rows, cols } = getTerminalSize();
   const hud   = buildHUD(cols);
   const title = buildTitle();
 
-  // Row indices where HUD lives (1-based)
-  const row1 = rows - 1; // separator line
-  const row2 = rows;     // content line
+  const scrollEnd = rows - HUD_HEIGHT;      // bottom of scrolling region
+  const hudRow1   = rows - 1;               // separator
+  const hudRow2   = rows;                   // data
 
   const seq =
-    `\x1b]0;${title}\x07`  +   // OSC: set terminal title
-    '\x1b7'                +   // DECSC: save cursor
-    `\x1b[${row1};1H`     +   // move to separator row
-    '\x1b[2K'             +   // clear separator row
-    `\x1b[${row2};1H`     +   // move to content row
-    '\x1b[2K'             +   // clear content row
-    `\x1b[${row1};1H`     +   // back to separator row
-    hud                   +   // write 2-line HUD
-    '\x1b8';                   // DECRC: restore cursor
+    `\x1b[1;${scrollEnd}r`   +   // DECSTBM: scrolling in rows 1..scrollEnd
+    `\x1b]0;${title}\x07`    +   // OSC: terminal title
+    '\x1b7'                   +   // DECSC: save cursor
+    `\x1b[${hudRow1};1H`      +   // move to separator row
+    '\x1b[2K'                 +   // clear
+    `\x1b[${hudRow2};1H`      +   // move to data row
+    '\x1b[2K'                 +   // clear
+    `\x1b[${hudRow1};1H`      +   // back to separator
+    hud                       +   // write 2-line HUD
+    '\x1b8';                      // DECRC: restore cursor
 
   try {
     const fd = fs.openSync('/dev/tty', 'w');
     fs.writeSync(fd, seq);
     fs.closeSync(fd);
-  } catch {
-    // /dev/tty unavailable (CI / non-interactive), silently skip
+  } catch (e) {
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Render Error: ${e}\n`);
   }
 }
 
 function scheduleRender(): void {
   if (renderTimer) clearTimeout(renderTimer);
-  // 150 ms debounce — gives Gemini CLI's Ink time to finish its own re-render
-  renderTimer = setTimeout(writeHUD, 150);
+  renderTimer = setTimeout(writeHUD, 100);
 }
 
 // ─── Event processing ───────────────────────────────────────────────────────
@@ -203,7 +202,7 @@ if (fs.existsSync(SOCKET_PATH)) {
 const server = net.createServer((socket) => {
   let buf = '';
   socket.on('data',  (d) => { buf += d.toString(); });
-  socket.on('error', ()  => { /* ignore */ });
+  socket.on('error', () => { /* ignore client errors */ });
   socket.on('end',   ()  => {
     try {
       const event = JSON.parse(buf) as Record<string, unknown>;
@@ -226,6 +225,18 @@ server.listen(SOCKET_PATH);
 
 function shutdown(): void {
   if (renderTimer) clearTimeout(renderTimer);
+  try {
+    const { rows } = getTerminalSize();
+    const fd = fs.openSync('/dev/tty', 'w');
+    fs.writeSync(fd,
+      '\x1b[r' +                             // reset DECSTBM
+      '\x1b7' +                               // save cursor
+      `\x1b[${rows - 1};1H\x1b[2K` +         // clear HUD separator
+      `\x1b[${rows};1H\x1b[2K` +             // clear HUD data
+      '\x1b8'                                 // restore cursor
+    );
+    fs.closeSync(fd);
+  } catch { /* ignore */ }
   server.close();
   try { fs.unlinkSync(SOCKET_PATH); } catch { /* ignore */ }
   process.exit(0);
@@ -233,4 +244,7 @@ function shutdown(): void {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT',  shutdown);
-process.on('uncaughtException', () => { /* stay alive on unexpected errors */ });
+process.on('SIGWINCH', () => { scheduleRender(); });
+process.on('uncaughtException', (e) => {
+  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Uncaught: ${e}\n`);
+});

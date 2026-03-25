@@ -26,8 +26,7 @@ async function ensureDaemon(): Promise<void> {
   if (!fs.existsSync(DAEMON_FILE)) return;          // not built yet
 
   const child = spawn(process.execPath, [DAEMON_FILE], {
-    detached: true,
-    stdio:    'ignore',
+    stdio: 'ignore',
   });
   child.unref();
 
