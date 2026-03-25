@@ -13,9 +13,11 @@ mkdir -p "$TARGET_DIR"
 
 # 复制文件到目标目录
 if [ -d "dist" ]; then
-    cp -R dist/* "$TARGET_DIR/"
+    mkdir -p "$TARGET_DIR/dist"
+    cp -R dist/* "$TARGET_DIR/dist/"
     cp gemini-extension.json "$TARGET_DIR/"
-    cp -R hooks "$TARGET_DIR/"
+    mkdir -p "$TARGET_DIR/hooks"
+    cp -R hooks/* "$TARGET_DIR/hooks/"
     echo "成功将扩展安装到 $TARGET_DIR"
 else
     echo "错误：未发现 dist 目录，请先运行 pnpm run build"

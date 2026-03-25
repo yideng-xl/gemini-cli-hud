@@ -6,21 +6,39 @@
  * When content fills the screen, the HUD is right below Gemini's UI.
  */
 
-import fs from 'fs';
-import net from 'net';
+import fs   from 'fs';
+import net  from 'net';
+import path from 'path';
 import { execSync } from 'child_process';
 
 const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
 const LOG_FILE = '/tmp/gemini-hud-debug.log';
 const HUD_HEIGHT = 2;
+const MAX_LOG_SIZE = 50 * 1024; // 50KB
+
+// Get workspace name from CWD
+const workspace = path.basename(process.cwd());
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function log(msg: string): void {
+  try {
+    if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > MAX_LOG_SIZE) {
+      fs.truncateSync(LOG_FILE, 0);
+    }
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
+  } catch { /* ignore */ }
+}
 
 // Context window sizes by model prefix (tokens)
 const MODEL_CONTEXT: Record<string, number> = {
-  'gemini-3':        1_000_000,
-  'gemini-2.5':      1_000_000,
-  'gemini-2.0':      1_000_000,
-  'gemini-1.5-pro':  2_000_000,
-  'gemini-1.5-flash':1_000_000,
+  'gemini-2.0-flash-exp': 1_000_000,
+  'gemini-2.0-flash':     1_000_000,
+  'gemini-2.0-pro':       2_000_000,
+  'gemini-1.5-pro':       2_000_000,
+  'gemini-1.5-flash':     1_000_000,
+  'gemini-flash':         1_000_000,
+  'gemini-pro':           2_000_000,
 };
 
 interface HUDState {
@@ -28,22 +46,23 @@ interface HUDState {
   tokens: { used: number; total: number };
   tools: Record<string, number>;
   sessionStart: number;
+  lastUpdated: number;
 }
 
 let state: HUDState = {
-  model: 'gemini',
+  model: 'gemini-2.0-flash',
   tokens: { used: 0, total: 1_000_000 },
   tools: {},
   sessionStart: Date.now(),
+  lastUpdated: Date.now(),
 };
-
-let renderTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getContextSize(model: string): number {
-  for (const prefix of Object.keys(MODEL_CONTEXT)) {
-    if (model.includes(prefix)) return MODEL_CONTEXT[prefix];
+  const m = model.toLowerCase();
+  for (const [prefix, size] of Object.entries(MODEL_CONTEXT)) {
+    if (m.includes(prefix)) return size;
   }
   return 1_000_000;
 }
@@ -65,99 +84,43 @@ function getTerminalSize(): { rows: number; cols: number } {
 function formatElapsed(startMs: number): string {
   const s = Math.floor((Date.now() - startMs) / 1000);
   if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m${s % 60}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m${s % 60}s`;
+  return `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`;
+}
+
+function createProgressBar(pct: number, width: number): string {
+  const fullBlocks = Math.floor((pct / 100) * width);
+  const partials = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+  const remainder = ((pct / 100) * width) - fullBlocks;
+  const partialIdx = Math.floor(remainder * 8);
+  
+  const bar = '█'.repeat(fullBlocks) + 
+              (fullBlocks < width ? partials[partialIdx] : '') + 
+              ' '.repeat(Math.max(0, width - fullBlocks - 1));
+  
+  // Apply colors based on usage
+  let color = '\x1b[32m'; // Green
+  if (pct > 70) color = '\x1b[33m'; // Yellow
+  if (pct > 90) color = '\x1b[31m'; // Red
+  
+  return `${color}${bar}\x1b[0m`;
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────────
-
-function buildHUD(cols: number): string {
-  const { used, total } = state.tokens;
-  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
-
-  const barWidth = Math.max(8, Math.min(20, Math.floor(cols / 10)));
-  const filled = Math.round((pct / 100) * barWidth);
-  const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
-
-  const modelName = state.model.replace(/^models\//, '').substring(0, 15);
-  const elapsed   = formatElapsed(state.sessionStart);
-  const usedK     = (used / 1_000).toFixed(0);
-  const totalM    = (total / 1_000_000).toFixed(1);
-
-  const segModel   = `\x1b[35;1m${modelName}\x1b[0m \x1b[90m${elapsed}\x1b[0m`;
-  const segContext = `ctx \x1b[32m${bar}\x1b[0m \x1b[1m${pct}%\x1b[0m \x1b[90m(${usedK}k/${totalM}M)\x1b[0m`;
-
-  const toolEntries = Object.entries(state.tools);
-  const segTools = toolEntries.length > 0
-    ? toolEntries.map(([n, c]) => `\x1b[33m${n}\x1b[0m×${c}`).join(' ')
-    : '\x1b[90midle\x1b[0m';
-
-  const sep  = `\x1b[90m${'─'.repeat(cols)}\x1b[0m`;
-  const body = ` ${segModel} │ ${segContext} │ ${segTools}`;
-
-  // Compact fallback for narrow terminals
-  const visibleLen = body.replace(/\x1b\[[0-9;]*m/g, '').length;
-  if (visibleLen > cols) {
-    return `${sep}\n ${segModel} | ${pct}% | ${segTools}`;
-  }
-
-  return `${sep}\n${body}`;
-}
 
 function buildTitle(): string {
   const { used, total } = state.tokens;
   const pct   = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const short = state.model.replace(/^models\//, '').replace(/-preview$|-latest$/, '');
-  const tools = Object.entries(state.tools).map(([n, c]) => `${n}×${c}`).join(' ') || 'idle';
-  return `[HUD] ${short} | ${pct}% | ${tools}`;
-}
-
-/**
- * Write HUD to /dev/tty.
- *
- * DECSTBM reserves the bottom 2 rows (rows-1, rows) outside the scrolling
- * region. All terminal content (including Gemini CLI's Ink) scrolls within
- * rows 1..(rows-2). The HUD is painted at rows-1 and rows using cursor
- * save/restore so it never disturbs the cursor position.
- */
-function writeHUD(): void {
-  const { rows, cols } = getTerminalSize();
-  const hud   = buildHUD(cols);
-  const title = buildTitle();
-
-  const scrollEnd = rows - HUD_HEIGHT;      // bottom of scrolling region
-  const hudRow1   = rows - 1;               // separator
-  const hudRow2   = rows;                   // data
-
-  const seq =
-    `\x1b[1;${scrollEnd}r`   +   // DECSTBM: scrolling in rows 1..scrollEnd
-    `\x1b]0;${title}\x07`    +   // OSC: terminal title
-    '\x1b7'                   +   // DECSC: save cursor
-    `\x1b[${hudRow1};1H`      +   // move to separator row
-    '\x1b[2K'                 +   // clear
-    `\x1b[${hudRow2};1H`      +   // move to data row
-    '\x1b[2K'                 +   // clear
-    `\x1b[${hudRow1};1H`      +   // back to separator
-    hud                       +   // write 2-line HUD
-    '\x1b8';                      // DECRC: restore cursor
-
-  try {
-    const fd = fs.openSync('/dev/tty', 'w');
-    fs.writeSync(fd, seq);
-    fs.closeSync(fd);
-  } catch (e) {
-    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Render Error: ${e}\n`);
-  }
-}
-
-function scheduleRender(): void {
-  if (renderTimer) clearTimeout(renderTimer);
-  renderTimer = setTimeout(writeHUD, 100);
+  const toolCount = Object.values(state.tools).reduce((a, b) => a + b, 0);
+  return `💎 ${short} | ${pct}% | ${toolCount} tools`;
 }
 
 // ─── Event processing ───────────────────────────────────────────────────────
 
 function processEvent(event: Record<string, unknown>): void {
   const name = event['hook_event_name'] as string | undefined;
+  state.lastUpdated = Date.now();
 
   switch (name) {
     case 'SessionStart':
@@ -207,7 +170,10 @@ const server = net.createServer((socket) => {
     try {
       const event = JSON.parse(buf) as Record<string, unknown>;
       processEvent(event);
-      scheduleRender();
+      
+      const title = buildTitle();
+      socket.write(JSON.stringify({ title }));
+      socket.end();
     } catch { /* ignore malformed JSON */ }
   });
 });
@@ -224,19 +190,6 @@ server.listen(SOCKET_PATH);
 // ─── Graceful shutdown ──────────────────────────────────────────────────────
 
 function shutdown(): void {
-  if (renderTimer) clearTimeout(renderTimer);
-  try {
-    const { rows } = getTerminalSize();
-    const fd = fs.openSync('/dev/tty', 'w');
-    fs.writeSync(fd,
-      '\x1b[r' +                             // reset DECSTBM
-      '\x1b7' +                               // save cursor
-      `\x1b[${rows - 1};1H\x1b[2K` +         // clear HUD separator
-      `\x1b[${rows};1H\x1b[2K` +             // clear HUD data
-      '\x1b8'                                 // restore cursor
-    );
-    fs.closeSync(fd);
-  } catch { /* ignore */ }
   server.close();
   try { fs.unlinkSync(SOCKET_PATH); } catch { /* ignore */ }
   process.exit(0);
@@ -244,7 +197,6 @@ function shutdown(): void {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT',  shutdown);
-process.on('SIGWINCH', () => { scheduleRender(); });
 process.on('uncaughtException', (e) => {
-  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] Uncaught: ${e}\n`);
+  log(`Uncaught: ${e}`);
 });
