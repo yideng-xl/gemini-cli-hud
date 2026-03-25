@@ -68,6 +68,13 @@ Until Google officially exposes a UI/statusline API for Gemini CLI extensions, t
 
 If you are a terminal wizard who knows a foolproof way to inject a sticky bottom row without breaking Ink, or if you work on Gemini CLI—please open an issue or submit a PR! We'd love to make the bottom HUD a reality.
 
+## 🗺️ Roadmap / Future Plans
+
+We are actively exploring ways to make Gemini CLI HUD even better:
+1. **The Ultimate Goal: Perfect Bottom Stickiness:** Achieving the seamless, native-feeling bottom status bar that Claude HUD has, without breaking Gemini CLI's scrolling or input.
+2. **Enhanced Usage Metrics:** Displaying exact API usage percentages and precise real-time refresh rates.
+3. **Authentication Tier Status:** Showing the current auth tier (e.g., Free, Pro, Enterprise) directly in the HUD so you know exactly which quota limits apply to your session.
+
 ## 💡 Inspiration
 
 This project is heavily inspired by the amazing [Claude HUD](https://github.com/jarrodwatts/claude-hud) created by [Jarrod Watts](https://github.com/jarrodwatts) for Anthropic's Claude Code. We wanted to bring that same level of observability and elegance to the Gemini CLI ecosystem!
@@ -75,5 +82,5 @@ This project is heavily inspired by the amazing [Claude HUD](https://github.com/
 ## 👥 Contributors
 
 - **You (The Developer)** - Creator and maintainer
-- **Gemini CLI (Gemini 2.0 Flash)** - AI pair programmer & co-architect (Current implementation and problem-solving)
-- **Claude 3.7 Sonnet** - AI pair programmer (Initial explorations)
+- **Gemini CLI (Gemini 3.1 Pro)** - AI pair programmer & co-architect (Current implementation and problem-solving)
+- **Claude 4.6 Opus** - AI pair programmer (Initial explorations)

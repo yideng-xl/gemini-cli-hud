@@ -68,6 +68,13 @@
 
 如果你是一位终端渲染的魔法师，知道如何在外挂模式下安全地在底部注入一行代码而不搞崩 Ink，或者你恰好就是 Gemini CLI 的官方开发者——请务必提交 PR 或提出 Issue！我们非常希望能和大家一起，把真正的“底部 HUD”带给所有用户。
 
+## 🗺️ 后续计划 (Roadmap)
+
+我们正在积极探索，致力于让 Gemini CLI HUD 变得更加完美：
+1. **终极目标：完美的底部贴靠体验** —— 实现像 Claude HUD 那样与原生 UI 无缝融合的底部状态栏，且绝对不干扰 Gemini CLI 的滚动和文字输入。
+2. **更精细的使用量统计** —— 显示精确的 Token/API Usage 消耗百分比，以及实时的刷新和耗时状态。
+3. **API 授权等级透出** —— 在 HUD 中直接展示当前使用的账号等级（如 Free、Pro 或 Enterprise），让你随时清楚当前会话受限于何种速率和配额限制。
+
 ## 💡 灵感来源
 
 本项目的诞生深受由 [Jarrod Watts](https://github.com/jarrodwatts) 为 Anthropic Claude Code 制作的优秀插件 [Claude HUD](https://github.com/jarrodwatts/claude-hud) 的启发。我们渴望在 Gemini CLI 生态系统中，也能拥有同样优雅的可观测性体验！
@@ -75,5 +82,5 @@
 ## 👥 贡献者 (Contributors)
 
 - **You (The Developer)** - 创作者与维护者
-- **Gemini CLI (Gemini 2.0 Flash)** - AI 结对编程伙伴 & 联合架构师（当前方案实现与问题攻坚）
-- **Claude 3.7 Sonnet** - AI 结对编程伙伴（早期架构探索）
+- **Gemini CLI (Gemini 3.1 Pro)** - AI 结对编程伙伴 & 联合架构师（当前方案实现与问题攻坚）
+- **Claude 4.6 Opus** - AI 结对编程伙伴（早期架构探索）
