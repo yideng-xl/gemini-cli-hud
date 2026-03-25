@@ -65,9 +65,23 @@ function renderHUD(state: HUDState): string {
 \x1b[90m──────────────────────────────────────────────────────────────────────\x1b[0m`;
 }
 
-function writeToTTY(text: string): void {
+function renderTitle(state: HUDState): string {
+  const { used, total } = state.tokens;
+  const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const shortModel = state.model.replace('gemini-', 'g-').replace('-preview', '').replace('-latest', '');
+  const toolEntries = Object.entries(state.tools);
+  const toolStr = toolEntries.length > 0
+    ? toolEntries.map(([n, c]) => `${n}×${c}`).join(' ')
+    : 'idle';
+  return `[HUD] ${shortModel} | ctx ${percent}% (${(used / 1000).toFixed(0)}k) | ${toolStr}`;
+}
+
+function writeToTTY(text: string, titleText: string): void {
   try {
     const fd = fs.openSync('/dev/tty', 'w');
+    // Set terminal window title (OSC 0) - persists through Ink re-renders
+    fs.writeSync(fd, `\x1b]0;${titleText}\x07`);
+    // Also try writing inline - may be overwritten by Ink but worth trying
     fs.writeSync(fd, `\n${text}\n`);
     fs.closeSync(fd);
   } catch {
@@ -127,7 +141,8 @@ async function main(): Promise<void> {
 
   // Only render HUD after meaningful events
   if (eventName === 'AfterModel' || eventName === 'AfterTool') {
-    writeToTTY(renderHUD(state));
+    const titleText = renderTitle(state);
+    writeToTTY(renderHUD(state), titleText);
   }
 
   // Must output valid JSON to stdout for Gemini CLI

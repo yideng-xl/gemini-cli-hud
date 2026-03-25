@@ -17,8 +17,12 @@
 /.next/
 /out/
 
-# production
+# build
+/dist
 /build
+
+# docs (internal communication)
+/docs
 
 # misc
 .DS_Store
