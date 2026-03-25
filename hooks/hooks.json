@@ -1,0 +1,26 @@
+{
+  "AfterModel": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "name": "gemini-cli-hud-token-usage",
+          "type": "command",
+          "command": "node ${extensionPath}/hook.js"
+        }
+      ]
+    }
+  ],
+  "AfterTool": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "name": "gemini-cli-hud-tool-usage",
+          "type": "command",
+          "command": "node ${extensionPath}/hook.js"
+        }
+      ]
+    }
+  ]
+}

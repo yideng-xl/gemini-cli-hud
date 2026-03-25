@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gemini CLI HUD (Heads-Up Display)
 
-## Getting Started
+一个为 [Gemini CLI](https://github.com/google/gemini-cli) 打造的、模仿 Claude-HUD 风格的终端状态栏扩展。
 
-First, run the development server:
+## 特性
+- **实时监控**：动态展示 Token 消耗和上下文窗口进度。
+- **工具统计**：统计当前会话中各工具（Bash, Read, etc.）的调用次数。
+- **粘性 UI**：使用 [Ink](https://github.com/vadimdemedes/ink) 渲染，始终保持在终端底部。
+- **独立无感**：作为原生扩展运行，不影响正常的对话流。
 
+## 安装
+
+### 1. 编译项目
+确保你已安装 `pnpm`，然后运行：
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 一键安装
+运行以下脚本将扩展部署到 `~/.gemini/extensions`：
+```bash
+./install.sh
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 工作原理
+该扩展采用“守护进程 (Daemon) + 钩子 (Hooks)”架构：
+1. **Hook 脚本**：Gemini CLI 在模型响应和工具执行后会触发。
+2. **Daemon 进程**：通过 Unix Socket 接收 Hook 发送的数据，并负责 Ink UI 的常驻渲染。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 开发与调试
+- **日志**：`tail -f /tmp/gemini-cli-hud-daemon.log`
+- **Socket**：`/tmp/gemini-cli-hud.sock`
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 许可证
+MIT
