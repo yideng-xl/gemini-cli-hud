@@ -16,8 +16,15 @@ if (fs.existsSync(SOCKET_PATH)) {
   fs.unlinkSync(SOCKET_PATH);
 }
 
+// 强制输出到终端 TTY
+const tty = fs.createWriteStream('/dev/tty');
+
+// 在启动时清屏并重置光标（可选，为了测试）
+// tty.write('\x1b[2J\x1b[0;0H'); 
+
 const { rerender } = render(
-  <HUD state={interceptor.getState()} model={model} workspace={workspace} />
+  <HUD state={interceptor.getState()} model={model} workspace={workspace} />,
+  { stdout: tty as any, debug: true }
 );
 
 const server = net.createServer((socket) => {

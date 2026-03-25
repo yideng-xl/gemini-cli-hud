@@ -1,26 +1,37 @@
 {
-  "AfterModel": [
-    {
-      "matcher": "*",
-      "hooks": [
-        {
-          "name": "gemini-cli-hud-token-usage",
-          "type": "command",
-          "command": "node ${extensionPath}/hook.js"
-        }
-      ]
-    }
-  ],
-  "AfterTool": [
-    {
-      "matcher": "*",
-      "hooks": [
-        {
-          "name": "gemini-cli-hud-tool-usage",
-          "type": "command",
-          "command": "node ${extensionPath}/hook.js"
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/dist/hook.js"
+          }
+        ]
+      }
+    ],
+    "AfterModel": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/dist/hook.js"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/dist/hook.js"
+          }
+        ]
+      }
+    ]
+  }
 }

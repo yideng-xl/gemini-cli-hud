@@ -1,103 +1,139 @@
-import net from 'net';
 import fs from 'fs';
-import { spawn } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const STATE_FILE = '/tmp/gemini-cli-hud-state.json';
 
-async function main() {
-  const input = await readStdin();
-  if (!input) return;
+// Context window sizes by model prefix
+const MODEL_CONTEXT: Record<string, number> = {
+  'gemini-2.0-flash': 1_000_000,
+  'gemini-2.5-pro': 1_000_000,
+  'gemini-2.5-flash': 1_000_000,
+  'gemini-1.5-pro': 2_000_000,
+  'gemini-1.5-flash': 1_000_000,
+};
 
+interface HUDState {
+  model: string;
+  tokens: { used: number; total: number };
+  tools: Record<string, number>;
+}
+
+function loadState(): HUDState {
   try {
-    const data = JSON.parse(input);
-    const event = transformEvent(data);
-    
-    if (event) {
-      await ensureDaemonRunning();
-      await sendToDaemon(event);
+    if (fs.existsSync(STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8')) as HUDState;
     }
-  } catch (err) {
-    // 忽略错误，确保不阻塞 CLI
+  } catch {
+    // ignore
   }
-
-  // Hook 必须输出有效的 JSON 到 stdout
-  console.log(JSON.stringify({ decision: 'allow' }));
+  return { model: 'gemini', tokens: { used: 0, total: 1_000_000 }, tools: {} };
 }
 
-async function ensureDaemonRunning() {
-  if (!fs.existsSync(SOCKET_PATH)) {
-    // 守护进程未启动，启动它
-    // 我们假设 daemon.js 在同一个目录下
-    const daemonPath = path.join(__dirname, 'daemon.js');
-    const out = fs.openSync('/tmp/gemini-cli-hud-daemon.log', 'a');
-    
-    const daemon = spawn('node', [daemonPath], {
-      detached: true,
-      stdio: ['ignore', out, out]
-    });
-    
-    daemon.unref();
-    
-    // 等待 socket 创建
-    let attempts = 0;
-    while (!fs.existsSync(SOCKET_PATH) && attempts < 10) {
-      await new Promise(r => setTimeout(r, 100));
-      attempts++;
-    }
+function saveState(state: HUDState): void {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state), 'utf-8');
+  } catch {
+    // ignore
   }
 }
 
-async function sendToDaemon(event: any) {
-  return new Promise((resolve) => {
-    const client = net.createConnection(SOCKET_PATH, () => {
-      client.write(JSON.stringify(event));
-      client.end();
-      resolve(true);
-    });
-    
-    client.on('error', () => {
-      resolve(false);
-    });
-  });
+function getContextSize(model: string): number {
+  for (const prefix of Object.keys(MODEL_CONTEXT)) {
+    if (model.startsWith(prefix)) return MODEL_CONTEXT[prefix];
+  }
+  return 1_000_000;
 }
 
-function readStdin(): Promise<string> {
+function renderHUD(state: HUDState): string {
+  const { used, total } = state.tokens;
+  const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+
+  const barWidth = 20;
+  const filled = Math.round((percent / 100) * barWidth);
+  const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
+
+  const toolEntries = Object.entries(state.tools);
+  const toolStr = toolEntries.length > 0
+    ? toolEntries.map(([name, count]) => `\x1b[33m${name}\x1b[0m x${count}`).join('  ')
+    : '\x1b[90m(no tools yet)\x1b[0m';
+
+  const modelDisplay = `\x1b[36m[${state.model}]\x1b[0m`;
+  const contextDisplay = `Context: \x1b[32m${bar}\x1b[0m \x1b[1m${percent}%\x1b[0m (${used.toLocaleString()}/${(total / 1000).toFixed(0)}k)`;
+  const toolDisplay = `Tools: ${toolStr}`;
+
+  return `\x1b[90m──────────────────────────────────────────────────────────────────────\x1b[0m
+ ${modelDisplay}  ${contextDisplay}  │  ${toolDisplay}
+\x1b[90m──────────────────────────────────────────────────────────────────────\x1b[0m`;
+}
+
+function writeToTTY(text: string): void {
+  try {
+    const fd = fs.openSync('/dev/tty', 'w');
+    fs.writeSync(fd, `\n${text}\n`);
+    fs.closeSync(fd);
+  } catch {
+    // TTY not available (e.g. in CI), silently skip
+  }
+}
+
+async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
-    process.stdin.on('data', (chunk) => {
-      data += chunk;
-    });
-    process.stdin.on('end', () => {
-      resolve(data);
-    });
-    // 设置超时防止悬挂
-    setTimeout(() => resolve(data), 500);
+    process.stdin.setEncoding('utf-8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => resolve(data));
+    setTimeout(() => resolve(data), 1000);
   });
 }
 
-function transformEvent(data: any): any {
-  // 处理 AfterModel (Token 使用情况)
-  if (data.llm_response && data.llm_response.usageMetadata) {
-    return {
-      type: 'usage',
-      usedTokens: data.llm_response.usageMetadata.totalTokenCount,
-      totalTokens: 1000000 
-    };
+async function main(): Promise<void> {
+  const raw = await readStdin();
+
+  let event: Record<string, unknown> = {};
+  try {
+    if (raw.trim()) event = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // not JSON, ignore
   }
 
-  // 处理 AfterTool (工具调用次数)
-  if (data.tool_name) {
-    return {
-      type: 'tool',
-      toolName: data.tool_name
-    };
+  const state = loadState();
+  const eventName = event['hook_event_name'] as string | undefined;
+
+  if (eventName === 'SessionStart') {
+    // Reset tool counts for new session
+    state.tools = {};
+    state.tokens = { used: 0, total: state.tokens.total };
+  } else if (eventName === 'AfterModel') {
+    const req = event['llm_request'] as Record<string, unknown> | undefined;
+    const res = event['llm_response'] as Record<string, unknown> | undefined;
+    const usage = res?.['usageMetadata'] as Record<string, number> | undefined;
+
+    if (req?.['model']) {
+      state.model = req['model'] as string;
+      state.tokens.total = getContextSize(state.model);
+    }
+    if (usage?.['totalTokenCount']) {
+      state.tokens.used = usage['totalTokenCount'];
+    } else if (usage?.['promptTokenCount']) {
+      state.tokens.used = usage['promptTokenCount'];
+    }
+  } else if (eventName === 'AfterTool') {
+    const toolName = event['tool_name'] as string | undefined;
+    if (toolName) {
+      state.tools[toolName] = (state.tools[toolName] ?? 0) + 1;
+    }
   }
 
-  return null;
+  saveState(state);
+
+  // Only render HUD after meaningful events
+  if (eventName === 'AfterModel' || eventName === 'AfterTool') {
+    writeToTTY(renderHUD(state));
+  }
+
+  // Must output valid JSON to stdout for Gemini CLI
+  process.stdout.write(JSON.stringify({ continue: true }) + '\n');
 }
 
-main();
+main().catch(() => {
+  process.stdout.write(JSON.stringify({ continue: true }) + '\n');
+});

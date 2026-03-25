@@ -1,61 +1,43 @@
 import fs from 'fs';
-import { spawn } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+/**
+ * Gemini CLI 扩展入口
+ * 此函数直接运行在 CLI 进程中，可以操作 UI 对象
+ */
+export default function init() {
+  return {
+    action: async (args: any) => {
+      const { gemini, usageMetadata } = args;
+      
+      // 核心诊断日志
+      fs.appendFileSync('/tmp/gemini-extension-load.log', `[HUD] Action called at ${new Date().toISOString()} | UI: ${!!gemini?.ui} | StatusLine: ${!!gemini?.ui?.statusLine}\n`);
 
-export interface ActionArgs {
-  gemini: {
-    ui: {
-      statusLine: {
-        draw: (text: string) => void;
-      };
-    };
+      if (!gemini || !gemini.ui || !gemini.ui.statusLine) {
+        return { continue: true };
+      }
+
+      try {
+        const used = usageMetadata?.totalTokenCount || 0;
+        const total = 1000000;
+        const percent = Math.min(100, Math.round((used / total) * 100));
+        
+        // 渲染进度条 (使用标准 ANSI 兼容字符)
+        const barWidth = 10;
+        const filled = Math.round((percent / 100) * barWidth);
+        const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
+        
+        // 使用 CLI 支持的标签语法进行着色
+        const statusLine = `{magenta}[Gemini 1.5 Pro]{/magenta} {gray}|{/gray} {cyan}Context: ${bar} ${percent}% (${used}/${total}){/cyan}`;
+        
+        // 执行渲染
+        gemini.ui.statusLine.draw(statusLine);
+        
+        fs.appendFileSync('/tmp/gemini-extension-load.log', `[HUD] Render success: ${used} tokens\n`);
+      } catch (e: any) {
+        fs.appendFileSync('/tmp/gemini-extension-load.log', `[HUD] Render Error: ${e.message}\n`);
+      }
+
+      return { continue: true };
+    }
   };
-}
-
-export async function action(args: any) {
-  const { gemini } = args;
-  
-  // 确保守护进程正在运行
-  await ensureDaemonRunning();
-
-  if (gemini?.ui?.statusLine) {
-    const model = "Gemini 1.5 Pro";
-    const statusLine = `{magenta}[${model}]{/magenta} {gray}|{/gray} {yellow}HUD Active{/yellow}`;
-    
-    try {
-      gemini.ui.statusLine.draw(statusLine);
-    } catch (e) {
-      // Ignore UI errors
-    }
-  }
-
-  return { continue: true };
-}
-
-async function ensureDaemonRunning() {
-  if (!fs.existsSync(SOCKET_PATH)) {
-    // 守护进程未启动，启动它
-    // 我们假设 daemon.js 在同一个目录下
-    const daemonPath = path.join(__dirname, 'daemon.js');
-    const out = fs.openSync('/tmp/gemini-cli-hud-daemon.log', 'a');
-    
-    const daemon = spawn('node', [daemonPath], {
-      detached: true,
-      stdio: ['ignore', out, out]
-    });
-    
-    daemon.unref();
-    
-    // 等待 socket 创建
-    let attempts = 0;
-    while (!fs.existsSync(SOCKET_PATH) && attempts < 10) {
-      await new Promise(r => setTimeout(r, 100));
-      attempts++;
-    }
-  }
 }

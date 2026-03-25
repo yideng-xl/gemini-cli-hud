@@ -1,7 +1,5 @@
 {
   "name": "gemini-cli-hud",
   "version": "0.1.0",
-  "description": "Sticky HUD for Gemini CLI using Ink",
-  "hooks": "hooks/hooks.json",
-  "main": "index.js"
+  "description": "Sticky HUD for Gemini CLI"
 }
