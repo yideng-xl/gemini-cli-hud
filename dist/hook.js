@@ -14,7 +14,8 @@ import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const SESSION_ID = process.ppid || process.pid; // Gemini CLI's PID
+const SOCKET_PATH = `/tmp/gemini-cli-hud-${SESSION_ID}.sock`;
 const DAEMON_FILE = path.join(__dirname, 'daemon.js');
 // ─── Daemon lifecycle ────────────────────────────────────────────────────────
 async function ensureDaemon() {
@@ -22,7 +23,7 @@ async function ensureDaemon() {
         return; // already running
     if (!fs.existsSync(DAEMON_FILE))
         return; // not built yet
-    const child = spawn(process.execPath, [DAEMON_FILE], {
+    const child = spawn(process.execPath, [DAEMON_FILE, SOCKET_PATH], {
         stdio: 'ignore',
     });
     child.unref();

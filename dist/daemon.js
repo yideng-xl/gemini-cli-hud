@@ -10,7 +10,7 @@ import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
 import { createInitialState, formatElapsed, formatTokens, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
-const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
 const workspace = path.basename(process.cwd());
@@ -84,7 +84,16 @@ function buildHUDBar() {
     return [buildSeparator(cols), ...contentLines];
 }
 // ─── Event processing ───────────────────────────────────────────────────────
+// Auto-exit after 10 minutes of inactivity (prevents stale daemons)
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+let idleTimer;
+function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => shutdown(), IDLE_TIMEOUT_MS);
+}
+resetIdleTimer();
 function handleEvent(event) {
+    resetIdleTimer();
     if (event['_termCols'])
         cachedTermSize.cols = event['_termCols'];
     if (event['_termRows'])

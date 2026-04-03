@@ -26,7 +26,7 @@ import {
   countExtensions,
 } from './hud-utils.js';
 
-const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 
 // Get workspace name from CWD
@@ -122,7 +122,19 @@ function buildHUDBar(): string[] {
 
 // ─── Event processing ───────────────────────────────────────────────────────
 
+// Auto-exit after 10 minutes of inactivity (prevents stale daemons)
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+let idleTimer: ReturnType<typeof setTimeout>;
+
+function resetIdleTimer(): void {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => shutdown(), IDLE_TIMEOUT_MS);
+}
+
+resetIdleTimer();
+
 function handleEvent(event: Record<string, unknown>): void {
+  resetIdleTimer();
   if (event['_termCols']) cachedTermSize.cols = event['_termCols'] as number;
   if (event['_termRows']) cachedTermSize.rows = event['_termRows'] as number;
   state = processEvent(state, event);
