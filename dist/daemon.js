@@ -10,9 +10,7 @@ import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
 const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
-const LOG_FILE = '/tmp/gemini-hud-debug.log';
 const HUD_HEIGHT = 2;
-const MAX_LOG_SIZE = 50 * 1024; // 50KB
 // Get workspace name from CWD
 const workspace = path.basename(process.cwd());
 function countGeminiMd(dir) {
@@ -50,10 +48,7 @@ function countGeminiMd(dir) {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function log(msg) {
     try {
-        if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > MAX_LOG_SIZE) {
-            fs.truncateSync(LOG_FILE, 0);
-        }
-        fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
+        fs.appendFileSync('/tmp/gemini-hud.log', `[${new Date().toISOString()}] ${msg}\n`);
     }
     catch { /* ignore */ }
 }
@@ -252,8 +247,6 @@ function processEvent(event) {
         cachedTermSize.cols = event['_termCols'];
     if (event['_termRows'])
         cachedTermSize.rows = event['_termRows'];
-    // Dump full event for debugging (remove later)
-    log(`[EVENT] ${name}: ${JSON.stringify(event, null, 2)}`);
     switch (name) {
         case 'SessionStart':
             state.model = '';
