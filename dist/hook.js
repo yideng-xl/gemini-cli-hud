@@ -34,15 +34,8 @@ async function ensureDaemon() {
     }
 }
 // ─── Socket communication ────────────────────────────────────────────────────
-function logHook(msg) {
-    try {
-        fs.appendFileSync('/tmp/gemini-hook-debug.log', `[${new Date().toISOString()}] ${msg}\n`);
-    }
-    catch { }
-}
 async function sendEvent(event) {
     return new Promise((resolve) => {
-        logHook(`Sending event: ${event['hook_event_name']}`);
         const client = net.createConnection(SOCKET_PATH, () => {
             const termSize = getTerminalSize();
             client.write(JSON.stringify({ ...event, _termCols: termSize.cols, _termRows: termSize.rows }));
@@ -51,7 +44,6 @@ async function sendEvent(event) {
         let reply = '';
         client.on('data', (d) => { reply += d.toString(); });
         client.on('end', () => {
-            logHook(`Received reply: ${reply}`);
             try {
                 const res = JSON.parse(reply);
                 // Set terminal title via OSC 0
@@ -60,30 +52,20 @@ async function sendEvent(event) {
                     try {
                         fs.writeFileSync('/dev/tty', seq);
                     }
-                    catch (e) {
-                        logHook(`Failed to write title: ${e}`);
+                    catch {
                         process.stderr.write(seq);
                     }
                 }
                 // Render bottom HUD bar
                 if (res.bar && res.bar.length > 0) {
                     renderHUD(res.bar);
-                    logHook('HUD bar rendered');
                 }
             }
-            catch (e) {
-                logHook(`Parse or process error: ${e}`);
-            }
+            catch { /* ignore malformed reply */ }
             resolve();
         });
-        client.on('error', (e) => {
-            logHook(`Socket error: ${e}`);
-            resolve();
-        });
-        setTimeout(() => {
-            logHook('Socket timeout');
-            resolve();
-        }, 500);
+        client.on('error', () => resolve());
+        setTimeout(() => resolve(), 500);
     });
 }
 // ─── Terminal rendering ─────────────────────────────────────────────────────
@@ -122,9 +104,7 @@ function renderHUD(bar) {
     try {
         fs.writeFileSync('/dev/tty', seq);
     }
-    catch (e) {
-        logHook(`Failed to render HUD: ${e}`);
-    }
+    catch { /* ignore tty write errors */ }
 }
 // ─── Main ────────────────────────────────────────────────────────────────────
 async function readStdin() {
