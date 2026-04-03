@@ -16,6 +16,7 @@ import {
   getContextSize,
   formatElapsed,
   formatTokens,
+  formatTokenRate,
   createProgressBar,
   visibleLen,
   buildSeparator,
@@ -107,7 +108,9 @@ function buildHUDBar(): string[] {
     modules.push({ ansi: skillSeg, width: visibleLen(skillSeg) });
   }
 
-  const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m`;
+  const rateStr = formatTokenRate(state.tokenRate);
+  const rateSuffix = rateStr ? ` \x1b[33m${rateStr}\x1b[0m` : '';
+  const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
   modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
 
   modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
