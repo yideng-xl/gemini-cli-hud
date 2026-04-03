@@ -69,6 +69,27 @@ async function sendEvent(event) {
         setTimeout(() => resolve(), 500);
     });
 }
+// ─── Session cleanup ────────────────────────────────────────────────────────
+function cleanupHUD() {
+    // Reset DECSTBM scroll region and clear HUD area
+    try {
+        const { rows } = getTerminalSize();
+        let seq = '\x1b7'; // save cursor
+        seq += '\x1b[r'; // reset scroll region to full terminal
+        // Clear bottom rows where HUD was
+        for (let i = rows - 3; i <= rows; i++) {
+            seq += `\x1b[${i};1H\x1b[2K`;
+        }
+        seq += '\x1b8'; // restore cursor
+        fs.writeFileSync('/dev/tty', seq);
+    }
+    catch { /* ignore */ }
+    // Remove socket file to signal daemon to exit
+    try {
+        fs.unlinkSync(SOCKET_PATH);
+    }
+    catch { /* ignore */ }
+}
 // ─── Terminal rendering ─────────────────────────────────────────────────────
 function getTerminalSize() {
     try {
@@ -126,8 +147,13 @@ async function main() {
     }
     catch { /* not JSON — pass empty event so daemon gets a heartbeat */ }
     try {
-        await ensureDaemon();
-        await sendEvent(event);
+        if (event['hook_event_name'] === 'SessionEnd') {
+            cleanupHUD();
+        }
+        else {
+            await ensureDaemon();
+            await sendEvent(event);
+        }
     }
     catch { /* never block Gemini CLI */ }
     // Gemini CLI requires a valid JSON response on stdout
