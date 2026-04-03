@@ -2,85 +2,111 @@
 
 # Gemini CLI HUD 💎
 
-A zero-interference, title-bar observability heads-up display (HUD) for [Gemini CLI](https://github.com/google/gemini-cli).
+A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://github.com/google/gemini-cli).
 
-[![npm version](https://img.shields.io/npm/v/gemini-cli-hud.svg)](https://www.npmjs.com/package/gemini-cli-hud)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-*Read this in other languages: [🇬🇧 English](README.md), [🇨🇳 简体中文](README.zh-CN.md).*
+*Read this in other languages: [English](README.md), [简体中文](README.zh-CN.md).*
 
 </div>
 
 ---
 
-**Gemini CLI HUD** is a real-time status monitor that runs seamlessly alongside your Gemini CLI sessions. It provides critical context about your AI agent's internal state without cluttering your terminal or interfering with standard inputs.
+**Gemini CLI HUD** is a real-time status monitor that renders a sticky status bar at the bottom of your terminal during Gemini CLI sessions. It provides critical observability into your AI agent's internal state — model, context usage, tool calls, and more — without interfering with your workflow.
 
-## ✨ Features
+## Screenshot
 
-- **Real-Time Context Usage:** Instantly see the percentage of the context window consumed.
-- **Active Model Tracking:** Always know which model (e.g., `gemini-2.0-flash`) is currently reasoning.
-- **Tool Observability:** Monitor how many tools the agent has called during the session.
-- **Zero Interference:** Exclusively utilizes the OS Terminal Title Bar (OSC 0) to ensure your typing, scrolling, and history remain 100% untouched.
+```
+─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
+ gemini-3-flash │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) │ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ Session: 12m
+```
 
-## 🚀 Installation
+## Features
 
-1. **Clone the repository:**
+- **Bottom-Sticky HUD:** Renders at the terminal bottom using DECSTBM scroll regions, staying visible while you work.
+- **Real-Time Context Usage:** Progress bar showing context window consumption percentage.
+- **Active Model Tracking:** Displays the current model (e.g., `gemini-3-flash-preview`).
+- **Tool Observability:** Claude-HUD style tool display: `✓ Read ×8 | ✓ Bash ×4`.
+- **GEMINI.md Counter:** Shows how many GEMINI.md files are loaded (project + global + extensions).
+- **Extensions Counter:** Shows installed Gemini CLI extensions count.
+- **Active Skill Tracking:** Displays the currently activated skill/extension.
+- **Session Timer:** Elapsed time since session start.
+- **Responsive Layout:** Modules wrap to multiple lines on narrow terminals instead of truncating mid-text.
+- **Title Bar Fallback:** Also sets the terminal title (OSC 0) as a secondary display.
+
+## Installation
+
+### Quick Install (from GitHub)
+
+```bash
+gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
+```
+
+### Manual Install
+
+1. **Clone and build:**
    ```bash
-   git clone https://github.com/your-username/gemini-cli-hud.git
+   git clone https://github.com/yideng-xl/gemini-cli-hud.git
    cd gemini-cli-hud
-   ```
-
-2. **Install dependencies and build:**
-   ```bash
    pnpm install
    pnpm run build
    ```
 
-3. **Install to your Gemini extensions directory:**
+2. **Install to Gemini extensions directory:**
    ```bash
    bash install.sh
    ```
 
-## 🛠 The Journey: Why Title Bar? (A Call to the Community)
+3. **Restart Gemini CLI.** The HUD appears automatically.
 
-Our original goal was to perfectly replicate a sticky status bar pinned to the bottom of the terminal. However, we ran into fundamental architectural differences between Gemini CLI and native UI applications. 
+## Architecture
 
-Here is what we tried, why it failed, and why we need your help:
+```
+┌─────────────────────────────────────────┐
+│ Gemini CLI (Ink rendering)              │  Scroll region: rows 1 to N-K
+│ > your input                            │
+│                                         │
+├──────────── gemini-cli-hud ─────────────┤  Row N-K+1: separator
+│ model │ meta │ Ctx: ██░░ │ tools │ time │  Row N-K+2..N: content
+└─────────────────────────────────────────┘
+```
 
-- **Attempt 1: `DECSTBM` (Scrolling Margins)**
-  We tried using ANSI escape sequences (`DECSTBM`) to reserve the bottom 2 rows. 
-  *Result:* Gemini CLI's underlying [Ink](https://github.com/vadimdemedes/ink) rendering engine does not track external scrolling margin changes. This led to massive screen corruption and jumpy cursors.
-  
-- **Attempt 2: Background Daemon with Absolute Positioning**
-  We ran a background Node.js daemon that drew the HUD to the bottom row (`\x1b[H`) every 100ms.
-  *Result:* Race conditions. The daemon and Gemini CLI's Ink engine fought over `/dev/tty`, causing the `Enter` key and text inputs to behave erratically.
+- **Daemon** (`daemon.js`): Background process that maintains HUD state (model, tokens, tools, skill). Receives events via Unix socket. **Never writes to the terminal.**
+- **Hook** (`hook.js`): Invoked synchronously by Gemini CLI on each event (SessionStart, AfterModel, AfterTool). Forwards events to daemon, receives rendered HUD content, and writes to `/dev/tty` using DECSTBM. **Only the hook touches the terminal** — this avoids race conditions with Ink.
 
-- **Attempt 3: Synchronous Top-Row Rendering**
-  We moved the HUD to the absolute top row (`\x1b[1;1H`) and only rendered it synchronously during hook events.
-  *Result:* Ruined scroll history. As terminal text scrolled upwards, the HUD stamped over the chat history, leaving "ghosts" in the scrollback buffer.
+## How It Works
 
-### Native UI vs. External Hooks
-**Claude HUD works perfectly** because Anthropic provides a native `statusline API` that injects data directly into the application's internal Ink render tree.
-**Gemini CLI HUD is an external hook.** We operate in a separate process (`hook.js`) and have to fight the main Ink engine for control of `/dev/tty`.
+| Event | What Happens |
+|---|---|
+| `SessionStart` | Hook starts daemon (if needed), resets state |
+| `AfterModel` | Captures model name, prompt token count, context size |
+| `AfterTool` | Tracks tool usage counts, detects `activate_skill` events |
 
-### How You Can Help!
-Until Google officially exposes a UI/statusline API for Gemini CLI extensions, the **Terminal Title Bar (OSC 0)** is the only 100% safe, zero-interference way to display stats. 
+The hook renders the HUD synchronously during each event — no background timers, no polling, no race conditions with Gemini CLI's Ink engine.
 
-If you are a terminal wizard who knows a foolproof way to inject a sticky bottom row without breaking Ink, or if you work on Gemini CLI—please open an issue or submit a PR! We'd love to make the bottom HUD a reality.
+## Known Limitations
 
-## 🗺️ Roadmap / Future Plans
+- **Terminal resize:** HUD updates on the next hook event after resize (not instantly), to avoid race conditions with Ink.
+- **Ink overwrites:** If Gemini CLI clears the screen (`\x1b[J`), the HUD may briefly disappear until the next event redraws it.
+- **No SessionEnd hook:** DECSTBM scroll region persists after exit. Run `reset` or open a new terminal to clear.
 
-We are actively exploring ways to make Gemini CLI HUD even better:
-1. **The Ultimate Goal: Perfect Bottom Stickiness:** Achieving the seamless, native-feeling bottom status bar that Claude HUD has, without breaking Gemini CLI's scrolling or input.
-2. **Enhanced Usage Metrics:** Displaying exact API usage percentages and precise real-time refresh rates.
-3. **Authentication Tier Status:** Showing the current auth tier (e.g., Free, Pro, Enterprise) directly in the HUD so you know exactly which quota limits apply to your session.
+## Roadmap
 
-## 💡 Inspiration
+1. **Native Statusline API:** If Google exposes a UI injection API for extensions, migrate to it for perfect integration.
+2. **Authentication Tier:** Display current auth tier (Free, Pro, Enterprise) and quota limits.
+3. **Cost Tracking:** Estimate API cost based on token consumption.
+4. **Configurable Layout:** Let users choose which modules to display and in what order.
 
-This project is heavily inspired by the amazing [Claude HUD](https://github.com/jarrodwatts/claude-hud) created by [Jarrod Watts](https://github.com/jarrodwatts) for Anthropic's Claude Code. We wanted to bring that same level of observability and elegance to the Gemini CLI ecosystem!
+## Inspiration
 
-## 👥 Contributors
+This project is inspired by [Claude HUD](https://github.com/jarrodwatts/claude-hud) by [Jarrod Watts](https://github.com/jarrodwatts). We wanted to bring the same level of observability to the Gemini CLI ecosystem.
 
-- **You (The Developer)** - Creator and maintainer
-- **Gemini CLI (Gemini 3.1 Pro)** - AI pair programmer & co-architect (Current implementation and problem-solving)
-- **Claude 4.6 Opus** - AI pair programmer (Initial explorations)
+## Contributors
+
+- **[yideng-xl](https://github.com/yideng-xl)** — Creator and maintainer
+- **Gemini** (Gemini 3 Flash / Pro) — AI pair programmer & co-architect. Built the initial daemon + hook architecture, title-bar prototype, and early DECSTBM explorations.
+- **Claude** (Claude Opus 4.6) — AI pair programmer & co-architect. Implemented bottom-sticky DECSTBM rendering, responsive module layout, context tracking, tool display, GEMINI.md counting, skill tracking, and resize handling.
+
+## License
+
+MIT
