@@ -16,6 +16,10 @@
 
 ## 效果预览
 
+![Gemini CLI HUD 实际效果](docs/gemini-cli-hud-11.png)
+
+![Gemini CLI HUD 概览](docs/gemini-cli-hud-12.png)
+
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
  gemini-3-flash │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) │ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ Session: 12m

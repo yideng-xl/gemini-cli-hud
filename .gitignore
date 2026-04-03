@@ -20,8 +20,10 @@
 # build
 /build
 
-# docs (internal communication)
-/docs
+# docs (only allow screenshot images for README)
+/docs/*
+!/docs/gemini-cli-hud-11.png
+!/docs/gemini-cli-hud-12.png
 
 # misc
 .DS_Store

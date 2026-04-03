@@ -14,7 +14,11 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 
 **Gemini CLI HUD** is a real-time status monitor that renders a sticky status bar at the bottom of your terminal during Gemini CLI sessions. It provides critical observability into your AI agent's internal state — model, context usage, tool calls, and more — without interfering with your workflow.
 
-## Screenshot
+## Screenshots
+
+![Gemini CLI HUD in action](docs/gemini-cli-hud-11.png)
+
+![Gemini CLI HUD overview](docs/gemini-cli-hud-12.png)
 
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
