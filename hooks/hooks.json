@@ -32,6 +32,17 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}/dist/hook.js"
+          }
+        ]
+      }
     ]
   }
 }
