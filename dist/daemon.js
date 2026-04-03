@@ -83,7 +83,9 @@ function buildHUDBar() {
     modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
     modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
     if (state.estimatedCost > 0) {
-        const costSeg = `\x1b[33m${formatCost(state.estimatedCost)}\x1b[0m`;
+        const inStr = formatTokens(state.totalInputTokens);
+        const outStr = formatTokens(state.totalOutputTokens);
+        const costSeg = `\x1b[33m↑${inStr} ↓${outStr} ${formatCost(state.estimatedCost)}\x1b[0m`;
         modules.push({ ansi: costSeg, width: visibleLen(costSeg) });
     }
     const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
