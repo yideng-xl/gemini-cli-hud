@@ -49,7 +49,8 @@ async function sendEvent(event: Record<string, unknown>): Promise<void> {
   return new Promise<void>((resolve) => {
     logHook(`Sending event: ${event['hook_event_name']}`);
     const client = net.createConnection(SOCKET_PATH, () => {
-      client.write(JSON.stringify(event));
+      const termSize = getTerminalSize();
+      client.write(JSON.stringify({ ...event, _termCols: termSize.cols, _termRows: termSize.rows }));
       client.end(); // Half-close, finish writing
     });
     
@@ -57,20 +58,24 @@ async function sendEvent(event: Record<string, unknown>): Promise<void> {
     client.on('data', (d) => { reply += d.toString(); });
     client.on('end', () => {
       logHook(`Received reply: ${reply}`);
-      let titleToSet = '';
       try {
-        const res = JSON.parse(reply) as { title?: string };
+        const res = JSON.parse(reply) as { title?: string; bar?: string[] };
+
+        // Set terminal title via OSC 0
         if (res.title) {
-          titleToSet = res.title;
           const seq = `\x1b]0;${res.title}\x07`;
           try {
-            logHook('Attempting to write to /dev/tty directly');
             fs.writeFileSync('/dev/tty', seq);
-            logHook('Successfully wrote to /dev/tty');
           } catch (e) {
-            logHook(`Failed to write to /dev/tty: ${e}. Trying stderr.`);
+            logHook(`Failed to write title: ${e}`);
             process.stderr.write(seq);
           }
+        }
+
+        // Render bottom HUD bar
+        if (res.bar && res.bar.length > 0) {
+          renderHUD(res.bar);
+          logHook('HUD bar rendered');
         }
       } catch (e) {
         logHook(`Parse or process error: ${e}`);
@@ -88,6 +93,50 @@ async function sendEvent(event: Record<string, unknown>): Promise<void> {
       resolve();
     }, 500);
   });
+}
+
+// ─── Terminal rendering ─────────────────────────────────────────────────────
+
+function getTerminalSize(): { rows: number; cols: number } {
+  try {
+    const out = execSync('stty size </dev/tty 2>/dev/null', {
+      encoding: 'utf8',
+      timeout: 500,
+    }).trim();
+    const [r, c] = out.split(' ').map(Number);
+    if (r > 4 && c > 20) return { rows: r, cols: c };
+  } catch {}
+  return { rows: 24, cols: 80 };
+}
+
+function renderHUD(bar: string[]): void {
+  const { rows } = getTerminalSize();
+  const hudHeight = bar.length;
+  const scrollBottom = rows - hudHeight;
+
+  if (scrollBottom < 4) return; // terminal too small
+
+  let seq = '';
+  seq += '\x1b7';                                // DECSC: save cursor
+  seq += '\x1b[r';                               // Reset scroll region (clear old)
+  // Clear all rows from new HUD position to bottom
+  for (let i = scrollBottom + 1; i <= rows; i++) {
+    seq += `\x1b[${i};1H\x1b[2K`;
+  }
+  seq += `\x1b[1;${scrollBottom}r`;              // DECSTBM: set scroll region
+
+  for (let i = 0; i < bar.length; i++) {
+    seq += `\x1b[${scrollBottom + 1 + i};1H`;   // CUP: move to HUD row
+    seq += bar[i];
+  }
+
+  seq += '\x1b8';                                // DECRC: restore cursor
+
+  try {
+    fs.writeFileSync('/dev/tty', seq);
+  } catch (e) {
+    logHook(`Failed to render HUD: ${e}`);
+  }
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
