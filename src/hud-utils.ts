@@ -81,6 +81,23 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'gemini-pro':           { input: 1.25,  output: 5.00  },
 };
 
+// ─── Auth tier detection ────────────────────────────────────────────────────
+
+export type AuthTier = 'Free' | 'Pro' | 'Enterprise' | 'API';
+
+export function inferAuthTier(model: string): AuthTier {
+  // If using GOOGLE_API_KEY or GEMINI_API_KEY, it's direct API usage
+  if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) {
+    return 'API';
+  }
+  // Pro-tier models indicate Pro subscription
+  const m = model.toLowerCase();
+  if (m.includes('-pro')) return 'Pro';
+  return 'Free';
+}
+
+// ─── Pricing ────────────────────────────────────────────────────────────────
+
 export function getModelPricing(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
   for (const [prefix, price] of Object.entries(MODEL_PRICING)) {

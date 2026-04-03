@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   formatTokens,
   formatTokenRate,
@@ -11,6 +11,7 @@ import {
   getContextSize,
   getModelPricing,
   estimateCost,
+  inferAuthTier,
   packModulesIntoLines,
   processEvent,
   createInitialState,
@@ -406,5 +407,36 @@ describe('processEvent cost tracking', () => {
     expect(s.estimatedCost).toBe(0);
     expect(s.totalInputTokens).toBe(0);
     expect(s.totalOutputTokens).toBe(0);
+  });
+});
+
+// ─── inferAuthTier ──────────────────────────────────────────────────────────
+
+describe('inferAuthTier', () => {
+  const origEnv = { ...process.env };
+
+  afterEach(() => {
+    delete process.env['GOOGLE_API_KEY'];
+    delete process.env['GEMINI_API_KEY'];
+  });
+
+  it('returns API when GOOGLE_API_KEY is set', () => {
+    process.env['GOOGLE_API_KEY'] = 'test-key';
+    expect(inferAuthTier('gemini-3-flash')).toBe('API');
+  });
+
+  it('returns API when GEMINI_API_KEY is set', () => {
+    process.env['GEMINI_API_KEY'] = 'test-key';
+    expect(inferAuthTier('gemini-3-pro')).toBe('API');
+  });
+
+  it('returns Pro for pro models without API key', () => {
+    expect(inferAuthTier('gemini-3-pro')).toBe('Pro');
+    expect(inferAuthTier('gemini-2.5-pro')).toBe('Pro');
+  });
+
+  it('returns Free for flash models without API key', () => {
+    expect(inferAuthTier('gemini-3-flash')).toBe('Free');
+    expect(inferAuthTier('gemini-2.5-flash')).toBe('Free');
   });
 });
