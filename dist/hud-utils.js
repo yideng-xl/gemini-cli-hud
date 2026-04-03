@@ -82,17 +82,6 @@ export const MODEL_PRICING = {
     'gemini-flash': { input: 0.075, output: 0.30 },
     'gemini-pro': { input: 1.25, output: 5.00 },
 };
-export function inferAuthTier(model) {
-    // If using GOOGLE_API_KEY or GEMINI_API_KEY, it's direct API usage
-    if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) {
-        return 'API';
-    }
-    // Pro-tier models indicate Pro subscription
-    const m = model.toLowerCase();
-    if (m.includes('-pro'))
-        return 'Pro';
-    return 'Free';
-}
 // ─── Pricing ────────────────────────────────────────────────────────────────
 export function getModelPricing(model) {
     const m = model.toLowerCase();
