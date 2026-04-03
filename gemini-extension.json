@@ -1,5 +1,6 @@
 {
   "name": "gemini-cli-hud",
-  "version": "0.2.0",
-  "description": "Real-time bottom-sticky HUD for Gemini CLI — model, context usage, tool calls, and more"
+  "version": "0.2.1",
+  "description": "Real-time bottom-sticky HUD for Gemini CLI — model, context usage, tool calls, and more",
+  "contextFileName": "GEMINI.md"
 }
