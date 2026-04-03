@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   formatTokens,
   formatTokenRate,
+  formatCost,
   formatElapsed,
   visibleLen,
   createProgressBar,
   buildSeparator,
   buildTitle,
   getContextSize,
+  getModelPricing,
+  estimateCost,
   packModulesIntoLines,
   processEvent,
   createInitialState,
@@ -324,5 +327,84 @@ describe('formatTokenRate', () => {
 
   it('formats large rates as K tok/s', () => {
     expect(formatTokenRate(1500)).toBe('1.5K tok/s');
+  });
+});
+
+// ─── Cost estimation ────────────────────────────────────────────────────────
+
+describe('getModelPricing', () => {
+  it('returns correct pricing for known models', () => {
+    const flash = getModelPricing('gemini-3-flash');
+    expect(flash.input).toBe(0.15);
+    expect(flash.output).toBe(0.60);
+
+    const pro = getModelPricing('gemini-3-pro');
+    expect(pro.input).toBe(1.25);
+    expect(pro.output).toBe(10.00);
+  });
+
+  it('returns default flash pricing for unknown models', () => {
+    const unknown = getModelPricing('unknown-model');
+    expect(unknown.input).toBe(0.15);
+  });
+});
+
+describe('estimateCost', () => {
+  it('calculates cost correctly', () => {
+    // 100K input tokens at $0.15/1M = $0.015
+    // 10K output tokens at $0.60/1M = $0.006
+    const cost = estimateCost('gemini-3-flash', 100_000, 10_000);
+    expect(cost).toBeCloseTo(0.021, 3);
+  });
+
+  it('handles zero tokens', () => {
+    expect(estimateCost('gemini-3-flash', 0, 0)).toBe(0);
+  });
+});
+
+describe('formatCost', () => {
+  it('formats tiny costs with 4 decimals', () => {
+    expect(formatCost(0.0012)).toBe('$0.0012');
+  });
+
+  it('formats small costs with 3 decimals', () => {
+    expect(formatCost(0.123)).toBe('$0.123');
+  });
+
+  it('formats large costs with 2 decimals', () => {
+    expect(formatCost(2.567)).toBe('$2.57');
+  });
+});
+
+describe('processEvent cost tracking', () => {
+  it('accumulates cost across AfterModel events', () => {
+    let s = createInitialState();
+    s = processEvent(s, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 50000, candidatesTokenCount: 5000 } },
+    });
+    expect(s.totalInputTokens).toBe(50000);
+    expect(s.totalOutputTokens).toBe(5000);
+    expect(s.estimatedCost).toBeGreaterThan(0);
+
+    const firstCost = s.estimatedCost;
+    s = processEvent(s, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 80000, candidatesTokenCount: 8000 } },
+    });
+    expect(s.totalInputTokens).toBe(130000);
+    expect(s.estimatedCost).toBeGreaterThan(firstCost);
+  });
+
+  it('resets cost on SessionStart', () => {
+    let s = createInitialState();
+    s.estimatedCost = 0.5;
+    s.totalInputTokens = 100000;
+    s = processEvent(s, { hook_event_name: 'SessionStart' });
+    expect(s.estimatedCost).toBe(0);
+    expect(s.totalInputTokens).toBe(0);
+    expect(s.totalOutputTokens).toBe(0);
   });
 });

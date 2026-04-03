@@ -65,6 +65,46 @@ export const MODEL_CONTEXT: Record<string, number> = {
   'gemini-pro':           2_000_000,
 };
 
+// Pricing: $ per 1M tokens { input, output } — based on Google AI pricing
+// Output price used for candidatesTokenCount if available
+export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'gemini-3-flash':       { input: 0.15,  output: 0.60  },
+  'gemini-3-pro':         { input: 1.25,  output: 10.00 },
+  'gemini-2.5-flash':     { input: 0.15,  output: 0.60  },
+  'gemini-2.5-pro':       { input: 1.25,  output: 10.00 },
+  'gemini-2.0-flash':     { input: 0.10,  output: 0.40  },
+  'gemini-2.0-flash-exp': { input: 0.10,  output: 0.40  },
+  'gemini-2.0-pro':       { input: 1.25,  output: 5.00  },
+  'gemini-1.5-pro':       { input: 1.25,  output: 5.00  },
+  'gemini-1.5-flash':     { input: 0.075, output: 0.30  },
+  'gemini-flash':         { input: 0.075, output: 0.30  },
+  'gemini-pro':           { input: 1.25,  output: 5.00  },
+};
+
+export function getModelPricing(model: string): { input: number; output: number } {
+  const m = model.toLowerCase();
+  for (const [prefix, price] of Object.entries(MODEL_PRICING)) {
+    if (m.includes(prefix)) return price;
+  }
+  return { input: 0.15, output: 0.60 }; // default to flash pricing
+}
+
+export function estimateCost(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  const pricing = getModelPricing(model);
+  return (inputTokens / 1_000_000) * pricing.input +
+         (outputTokens / 1_000_000) * pricing.output;
+}
+
+export function formatCost(cost: number): string {
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  if (cost < 1) return `$${cost.toFixed(3)}`;
+  return `$${cost.toFixed(2)}`;
+}
+
 export interface HUDState {
   model: string;
   tokens: { used: number; total: number };
@@ -76,6 +116,9 @@ export interface HUDState {
   tokenRate: number;           // tokens/sec (smoothed)
   lastModelTime: number;       // timestamp of last AfterModel
   lastModelTokens: number;     // token count at last AfterModel
+  totalInputTokens: number;    // cumulative input tokens across all requests
+  totalOutputTokens: number;   // cumulative output tokens across all requests
+  estimatedCost: number;       // cumulative estimated cost in USD
 }
 
 export function createInitialState(): HUDState {
@@ -90,6 +133,9 @@ export function createInitialState(): HUDState {
     tokenRate: 0,
     lastModelTime: 0,
     lastModelTokens: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    estimatedCost: 0,
   };
 }
 
@@ -195,14 +241,17 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
 
   switch (name) {
     case 'SessionStart':
-      next.model          = '';
-      next.tools          = {};
-      next.tokens         = { used: 0, total: 0 };
-      next.activeSkill    = '';
-      next.sessionStart   = Date.now();
-      next.tokenRate      = 0;
-      next.lastModelTime  = 0;
-      next.lastModelTokens = 0;
+      next.model            = '';
+      next.tools            = {};
+      next.tokens           = { used: 0, total: 0 };
+      next.activeSkill      = '';
+      next.sessionStart     = Date.now();
+      next.tokenRate        = 0;
+      next.lastModelTime    = 0;
+      next.lastModelTokens  = 0;
+      next.totalInputTokens = 0;
+      next.totalOutputTokens = 0;
+      next.estimatedCost    = 0;
       break;
 
     case 'AfterModel': {
@@ -220,6 +269,10 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
       } else if (usage?.['totalTokenCount']) {
         newUsed = usage['totalTokenCount'];
       }
+      // Accumulate output tokens (candidatesTokenCount) for cost estimation
+      const outputTokens = usage?.['candidatesTokenCount'] ?? 0;
+      const inputTokens = usage?.['promptTokenCount'] ?? 0;
+
       if (newUsed > 0) {
         next.tokens = { ...next.tokens, used: newUsed };
         // Calculate token rate (tokens/sec between AfterModel events)
@@ -233,6 +286,13 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
         }
         next.lastModelTime = now;
         next.lastModelTokens = newUsed;
+      }
+
+      // Accumulate cost per request
+      if (inputTokens > 0 || outputTokens > 0) {
+        next.totalInputTokens += inputTokens;
+        next.totalOutputTokens += outputTokens;
+        next.estimatedCost = estimateCost(next.model, next.totalInputTokens, next.totalOutputTokens);
       }
       break;
     }
