@@ -81,6 +81,27 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'gemini-pro':           { input: 1.25,  output: 5.00  },
 };
 
+// ─── Auth type detection ────────────────────────────────────────────────────
+
+export type AuthType = 'OAuth' | 'API';
+
+export function detectAuthType(): AuthType {
+  // Check for API key env vars
+  if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']) {
+    return 'API';
+  }
+  // Check ~/.gemini/settings.json for oauth
+  try {
+    const home = process.env['HOME'] || '';
+    const settingsPath = path.join(home, '.gemini', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      if (settings.authType?.includes('oauth')) return 'OAuth';
+    }
+  } catch { /* ignore */ }
+  return 'OAuth'; // default for Google account login
+}
+
 // ─── Pricing ────────────────────────────────────────────────────────────────
 
 export function getModelPricing(model: string): { input: number; output: number } {

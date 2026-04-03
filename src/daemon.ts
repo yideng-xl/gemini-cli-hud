@@ -18,6 +18,7 @@ import {
   formatTokens,
   formatTokenRate,
   formatCost,
+  detectAuthType,
   createProgressBar,
   visibleLen,
   buildSeparator,
@@ -98,7 +99,9 @@ function buildHUDBar(): string[] {
   // Define modules — each is an atomic unit that never breaks mid-content
   const modules: { ansi: string; width: number }[] = [];
 
-  const modelSeg = `\x1b[1;32m${short}\x1b[0m`;
+  const authType = detectAuthType();
+  const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
+  const modelSeg = `\x1b[1;32m${short}\x1b[0m ${authColor}${authType}\x1b[0m`;
   modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
 
   const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ext\x1b[0m`;

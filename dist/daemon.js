@@ -9,7 +9,7 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
-import { createInitialState, formatElapsed, formatTokens, formatTokenRate, formatCost, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
+import { createInitialState, formatElapsed, formatTokens, formatTokenRate, formatCost, detectAuthType, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
@@ -67,7 +67,9 @@ function buildHUDBar() {
     const extCount = countExtensions();
     // Define modules — each is an atomic unit that never breaks mid-content
     const modules = [];
-    const modelSeg = `\x1b[1;32m${short}\x1b[0m`;
+    const authType = detectAuthType();
+    const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
+    const modelSeg = `\x1b[1;32m${short}\x1b[0m ${authColor}${authType}\x1b[0m`;
     modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
     const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ext\x1b[0m`;
     modules.push({ ansi: metaSeg, width: visibleLen(metaSeg) });
