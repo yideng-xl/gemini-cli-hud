@@ -17,6 +17,7 @@ import {
   formatElapsed,
   formatTokens,
   formatTokenRate,
+  formatCost,
   createProgressBar,
   visibleLen,
   buildSeparator,
@@ -114,6 +115,11 @@ function buildHUDBar(): string[] {
   modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
 
   modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
+
+  if (state.estimatedCost > 0) {
+    const costSeg = `\x1b[33m${formatCost(state.estimatedCost)}\x1b[0m`;
+    modules.push({ ansi: costSeg, width: visibleLen(costSeg) });
+  }
 
   const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
   modules.push({ ansi: sessionSeg, width: visibleLen(sessionSeg) });
