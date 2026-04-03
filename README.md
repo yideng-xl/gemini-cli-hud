@@ -22,19 +22,25 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
- gemini-3-flash │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) │ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ Session: 12m
+ gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
+ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
 ## Features
 
 - **Bottom-Sticky HUD:** Renders at the terminal bottom using DECSTBM scroll regions, staying visible while you work.
 - **Real-Time Context Usage:** Progress bar showing context window consumption percentage.
-- **Active Model Tracking:** Displays the current model (e.g., `gemini-3-flash-preview`).
+- **Token Throughput:** Displays tokens/sec rate (e.g., `1.2K tok/s`) next to the context bar.
+- **Cost Estimation:** Real-time API cost tracking with input/output breakdown: `↑420K ↓52K $0.021`.
+- **Auth Type Display:** Shows `OAuth` or `API` next to the model name.
+- **Active Model Tracking:** Displays the current model (e.g., `gemini-3-flash`).
 - **Tool Observability:** Claude-HUD style tool display: `✓ Read ×8 | ✓ Bash ×4`.
 - **GEMINI.md Counter:** Shows how many GEMINI.md files are loaded (project + global + extensions).
 - **Extensions Counter:** Shows installed Gemini CLI extensions count.
 - **Active Skill Tracking:** Displays the currently activated skill/extension.
 - **Session Timer:** Elapsed time since session start.
+- **Multi-Session Support:** Each Gemini CLI instance gets its own isolated HUD daemon.
+- **Session Cleanup:** Automatically resets terminal scroll region on session exit.
 - **Responsive Layout:** Modules wrap to multiple lines on narrow terminals instead of truncating mid-text.
 - **Title Bar Fallback:** Also sets the terminal title (OSC 0) as a secondary display.
 
@@ -83,8 +89,9 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | Event | What Happens |
 |---|---|
 | `SessionStart` | Hook starts daemon (if needed), resets state |
-| `AfterModel` | Captures model name, prompt token count, context size |
+| `AfterModel` | Captures model name, prompt token count, context size, calculates token rate and cost |
 | `AfterTool` | Tracks tool usage counts, detects `activate_skill` events |
+| `SessionEnd` | Resets DECSTBM scroll region, cleans up socket file |
 
 The hook renders the HUD synchronously during each event — no background timers, no polling, no race conditions with Gemini CLI's Ink engine.
 
@@ -92,14 +99,13 @@ The hook renders the HUD synchronously during each event — no background timer
 
 - **Terminal resize:** HUD updates on the next hook event after resize (not instantly), to avoid race conditions with Ink.
 - **Ink overwrites:** If Gemini CLI clears the screen (`\x1b[J`), the HUD may briefly disappear until the next event redraws it.
-- **No SessionEnd hook:** DECSTBM scroll region persists after exit. Run `reset` or open a new terminal to clear.
+- **Cost estimation:** Based on published Gemini API pricing; actual billing may vary. Free-tier users are not charged.
 
 ## Roadmap
 
 1. **Native Statusline API:** If Google exposes a UI injection API for extensions, migrate to it for perfect integration.
-2. **Authentication Tier:** Display current auth tier (Free, Pro, Enterprise) and quota limits.
-3. **Cost Tracking:** Estimate API cost based on token consumption.
-4. **Configurable Layout:** Let users choose which modules to display and in what order.
+2. **Subscription Tier Display:** Show account tier (Free, Pro, Max) — blocked by upstream API ([#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)).
+3. **Configurable Layout:** Let users choose which modules to display and in what order.
 
 ## Inspiration
 

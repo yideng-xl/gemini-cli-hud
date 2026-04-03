@@ -22,19 +22,25 @@
 
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
- gemini-3-flash │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) │ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ Session: 12m
+ gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
+ ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
 ## 核心特性
 
 - **底部常驻 HUD：** 通过 DECSTBM 滚动区域渲染在终端底部，工作时始终可见。
 - **实时上下文用量：** 进度条显示 Context Window 消耗百分比。
-- **活动模型追踪：** 显示当前模型（如 `gemini-3-flash-preview`）。
+- **Token 吞吐速率：** 显示每秒 token 处理速率（如 `1.2K tok/s`）。
+- **费用估算：** 实时 API 费用追踪，分别显示输入/输出 token：`↑420K ↓52K $0.021`。
+- **认证方式显示：** 在模型名旁显示 `OAuth` 或 `API`。
+- **活动模型追踪：** 显示当前模型（如 `gemini-3-flash`）。
 - **工具观测：** Claude-HUD 风格的工具展示：`✓ Read ×8 | ✓ Bash ×4`。
 - **GEMINI.md 计数：** 显示已加载的 GEMINI.md 文件数（项目 + 全局 + 扩展）。
 - **扩展计数：** 显示已安装的 Gemini CLI 扩展数量。
 - **活跃 Skill 追踪：** 显示当前激活的 skill/extension。
 - **会话计时：** 从会话开始的已用时间。
+- **多会话支持：** 每个 Gemini CLI 实例拥有独立的 HUD daemon，互不干扰。
+- **会话退出清理：** 退出时自动重置终端滚动区域，无需手动 `reset`。
 - **响应式布局：** 窄终端时模块整体换行，不会在模块中间截断。
 - **标题栏回退：** 同时设置终端标题 (OSC 0) 作为辅助显示。
 
@@ -83,8 +89,9 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | 事件 | 处理 |
 |---|---|
 | `SessionStart` | Hook 启动 daemon（如需要），重置状态 |
-| `AfterModel` | 捕获模型名称、prompt token 数、上下文大小 |
+| `AfterModel` | 捕获模型名称、prompt token 数、上下文大小，计算 token 速率和费用 |
 | `AfterTool` | 追踪工具调用次数，检测 `activate_skill` 事件 |
+| `SessionEnd` | 重置 DECSTBM 滚动区域，清理 socket 文件 |
 
 Hook 在每个事件期间同步渲染 HUD — 无后台定时器、无轮询、不与 Gemini CLI 的 Ink 引擎产生竞争。
 
@@ -92,14 +99,13 @@ Hook 在每个事件期间同步渲染 HUD — 无后台定时器、无轮询、
 
 - **终端缩放：** 缩放后 HUD 在下一次 hook 事件时更新（非即时），以避免与 Ink 的竞争条件。
 - **Ink 覆盖：** 如果 Gemini CLI 清屏（`\x1b[J`），HUD 可能短暂消失，直到下次事件重绘。
-- **无 SessionEnd hook：** 退出后 DECSTBM 滚动区域会保留。运行 `reset` 或打开新终端窗口即可清除。
+- **费用估算：** 基于 Gemini API 公开定价计算，实际账单可能有差异。免费用户不会产生费用。
 
 ## 后续计划
 
 1. **原生 Statusline API：** 如果 Google 开放扩展 UI 注入 API，迁移到原生方案以实现完美集成。
-2. **认证等级显示：** 展示当前账号等级（Free、Pro、Enterprise）和配额限制。
-3. **费用追踪：** 基于 token 消耗估算 API 费用。
-4. **可配置布局：** 让用户选择显示哪些模块及其顺序。
+2. **订阅等级显示：** 展示当前账号等级（Free、Pro、Max）— 等待上游 API 开放（[#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)）。
+3. **可配置布局：** 让用户选择显示哪些模块及其顺序。
 
 ## 灵感来源
 
