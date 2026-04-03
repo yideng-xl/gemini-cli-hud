@@ -1,0 +1,157 @@
+/**
+ * Gemini CLI HUD — Hook entry point
+ *
+ * Invoked by Gemini CLI for each hook event (SessionStart, AfterModel, AfterTool).
+ * Responsibilities:
+ *   1. Ensure the HUD daemon is running
+ *   2. Forward the event to the daemon via Unix socket
+ *   3. Return {"continue": true} to Gemini CLI on stdout
+ */
+import fs from 'fs';
+import net from 'net';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn, execSync } from 'child_process';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SOCKET_PATH = '/tmp/gemini-cli-hud.sock';
+const DAEMON_FILE = path.join(__dirname, 'daemon.js');
+// ─── Daemon lifecycle ────────────────────────────────────────────────────────
+async function ensureDaemon() {
+    if (fs.existsSync(SOCKET_PATH))
+        return; // already running
+    if (!fs.existsSync(DAEMON_FILE))
+        return; // not built yet
+    const child = spawn(process.execPath, [DAEMON_FILE], {
+        stdio: 'ignore',
+    });
+    child.unref();
+    // Wait up to 2s for the socket to appear
+    for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        if (fs.existsSync(SOCKET_PATH))
+            return;
+    }
+}
+// ─── Socket communication ────────────────────────────────────────────────────
+function logHook(msg) {
+    try {
+        fs.appendFileSync('/tmp/gemini-hook-debug.log', `[${new Date().toISOString()}] ${msg}\n`);
+    }
+    catch { }
+}
+async function sendEvent(event) {
+    return new Promise((resolve) => {
+        logHook(`Sending event: ${event['hook_event_name']}`);
+        const client = net.createConnection(SOCKET_PATH, () => {
+            const termSize = getTerminalSize();
+            client.write(JSON.stringify({ ...event, _termCols: termSize.cols, _termRows: termSize.rows }));
+            client.end(); // Half-close, finish writing
+        });
+        let reply = '';
+        client.on('data', (d) => { reply += d.toString(); });
+        client.on('end', () => {
+            logHook(`Received reply: ${reply}`);
+            try {
+                const res = JSON.parse(reply);
+                // Set terminal title via OSC 0
+                if (res.title) {
+                    const seq = `\x1b]0;${res.title}\x07`;
+                    try {
+                        fs.writeFileSync('/dev/tty', seq);
+                    }
+                    catch (e) {
+                        logHook(`Failed to write title: ${e}`);
+                        process.stderr.write(seq);
+                    }
+                }
+                // Render bottom HUD bar
+                if (res.bar && res.bar.length > 0) {
+                    renderHUD(res.bar);
+                    logHook('HUD bar rendered');
+                }
+            }
+            catch (e) {
+                logHook(`Parse or process error: ${e}`);
+            }
+            resolve();
+        });
+        client.on('error', (e) => {
+            logHook(`Socket error: ${e}`);
+            resolve();
+        });
+        setTimeout(() => {
+            logHook('Socket timeout');
+            resolve();
+        }, 500);
+    });
+}
+// ─── Terminal rendering ─────────────────────────────────────────────────────
+function getTerminalSize() {
+    try {
+        const out = execSync('stty size </dev/tty 2>/dev/null', {
+            encoding: 'utf8',
+            timeout: 500,
+        }).trim();
+        const [r, c] = out.split(' ').map(Number);
+        if (r > 4 && c > 20)
+            return { rows: r, cols: c };
+    }
+    catch { }
+    return { rows: 24, cols: 80 };
+}
+function renderHUD(bar) {
+    const { rows } = getTerminalSize();
+    const hudHeight = bar.length;
+    const scrollBottom = rows - hudHeight;
+    if (scrollBottom < 4)
+        return; // terminal too small
+    let seq = '';
+    seq += '\x1b7'; // DECSC: save cursor
+    seq += '\x1b[r'; // Reset scroll region (clear old)
+    // Clear all rows from new HUD position to bottom
+    for (let i = scrollBottom + 1; i <= rows; i++) {
+        seq += `\x1b[${i};1H\x1b[2K`;
+    }
+    seq += `\x1b[1;${scrollBottom}r`; // DECSTBM: set scroll region
+    for (let i = 0; i < bar.length; i++) {
+        seq += `\x1b[${scrollBottom + 1 + i};1H`; // CUP: move to HUD row
+        seq += bar[i];
+    }
+    seq += '\x1b8'; // DECRC: restore cursor
+    try {
+        fs.writeFileSync('/dev/tty', seq);
+    }
+    catch (e) {
+        logHook(`Failed to render HUD: ${e}`);
+    }
+}
+// ─── Main ────────────────────────────────────────────────────────────────────
+async function readStdin() {
+    return new Promise((resolve) => {
+        let data = '';
+        process.stdin.setEncoding('utf-8');
+        process.stdin.on('data', (c) => { data += c; });
+        process.stdin.on('end', () => resolve(data));
+        setTimeout(() => resolve(data), 1_000);
+    });
+}
+async function main() {
+    const raw = await readStdin();
+    let event = {};
+    try {
+        if (raw.trim())
+            event = JSON.parse(raw);
+    }
+    catch { /* not JSON — pass empty event so daemon gets a heartbeat */ }
+    try {
+        await ensureDaemon();
+        await sendEvent(event);
+    }
+    catch { /* never block Gemini CLI */ }
+    // Gemini CLI requires a valid JSON response on stdout
+    process.stdout.write(JSON.stringify({ continue: true }) + '\n');
+}
+main().catch(() => {
+    process.stdout.write(JSON.stringify({ continue: true }) + '\n');
+});
