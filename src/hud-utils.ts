@@ -73,6 +73,9 @@ export interface HUDState {
   cwd: string;
   sessionStart: number;
   lastUpdated: number;
+  tokenRate: number;           // tokens/sec (smoothed)
+  lastModelTime: number;       // timestamp of last AfterModel
+  lastModelTokens: number;     // token count at last AfterModel
 }
 
 export function createInitialState(): HUDState {
@@ -84,6 +87,9 @@ export function createInitialState(): HUDState {
     cwd: '',
     sessionStart: Date.now(),
     lastUpdated: Date.now(),
+    tokenRate: 0,
+    lastModelTime: 0,
+    lastModelTokens: 0,
   };
 }
 
@@ -106,6 +112,12 @@ export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1000) return `${Math.round(n / 1000)}K`;
   return `${n}`;
+}
+
+export function formatTokenRate(rate: number): string {
+  if (rate <= 0) return '';
+  if (rate >= 1000) return `${(rate / 1000).toFixed(1)}K tok/s`;
+  return `${rate} tok/s`;
 }
 
 export function visibleLen(s: string): number {
@@ -183,11 +195,14 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
 
   switch (name) {
     case 'SessionStart':
-      next.model        = '';
-      next.tools        = {};
-      next.tokens       = { used: 0, total: 0 };
-      next.activeSkill  = '';
-      next.sessionStart = Date.now();
+      next.model          = '';
+      next.tools          = {};
+      next.tokens         = { used: 0, total: 0 };
+      next.activeSkill    = '';
+      next.sessionStart   = Date.now();
+      next.tokenRate      = 0;
+      next.lastModelTime  = 0;
+      next.lastModelTokens = 0;
       break;
 
     case 'AfterModel': {
@@ -199,10 +214,25 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
         next.model        = req['model'] as string;
         next.tokens = { ...next.tokens, total: getContextSize(next.model) };
       }
+      let newUsed = 0;
       if (usage?.['promptTokenCount']) {
-        next.tokens = { ...next.tokens, used: usage['promptTokenCount'] };
+        newUsed = usage['promptTokenCount'];
       } else if (usage?.['totalTokenCount']) {
-        next.tokens = { ...next.tokens, used: usage['totalTokenCount'] };
+        newUsed = usage['totalTokenCount'];
+      }
+      if (newUsed > 0) {
+        next.tokens = { ...next.tokens, used: newUsed };
+        // Calculate token rate (tokens/sec between AfterModel events)
+        const now = Date.now();
+        if (next.lastModelTime > 0 && newUsed > next.lastModelTokens) {
+          const dtSec = (now - next.lastModelTime) / 1000;
+          if (dtSec > 0.5) {
+            const delta = newUsed - next.lastModelTokens;
+            next.tokenRate = Math.round(delta / dtSec);
+          }
+        }
+        next.lastModelTime = now;
+        next.lastModelTokens = newUsed;
       }
       break;
     }

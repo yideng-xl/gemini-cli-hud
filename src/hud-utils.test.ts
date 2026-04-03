@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   formatTokens,
+  formatTokenRate,
   formatElapsed,
   visibleLen,
   createProgressBar,
@@ -283,5 +284,45 @@ describe('processEvent', () => {
       llm_response: { usageMetadata: { promptTokenCount: 1000 } },
     });
     expect(next.cwd).toBe('/home/user/project');
+  });
+
+  it('tracks lastModelTime and lastModelTokens on AfterModel', () => {
+    const next = processEvent(state, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 5000 } },
+    });
+    expect(next.lastModelTime).toBeGreaterThan(0);
+    expect(next.lastModelTokens).toBe(5000);
+  });
+
+  it('resets token rate on SessionStart', () => {
+    state.tokenRate = 500;
+    state.lastModelTime = Date.now();
+    state.lastModelTokens = 10000;
+    const next = processEvent(state, { hook_event_name: 'SessionStart' });
+    expect(next.tokenRate).toBe(0);
+    expect(next.lastModelTime).toBe(0);
+    expect(next.lastModelTokens).toBe(0);
+  });
+});
+
+// ─── formatTokenRate ────────────────────────────────────────────────────────
+
+describe('formatTokenRate', () => {
+  it('returns empty string for zero rate', () => {
+    expect(formatTokenRate(0)).toBe('');
+  });
+
+  it('returns empty string for negative rate', () => {
+    expect(formatTokenRate(-10)).toBe('');
+  });
+
+  it('formats small rates as tok/s', () => {
+    expect(formatTokenRate(500)).toBe('500 tok/s');
+  });
+
+  it('formats large rates as K tok/s', () => {
+    expect(formatTokenRate(1500)).toBe('1.5K tok/s');
   });
 });

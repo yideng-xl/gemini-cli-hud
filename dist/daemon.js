@@ -9,7 +9,7 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
-import { createInitialState, formatElapsed, formatTokens, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
+import { createInitialState, formatElapsed, formatTokens, formatTokenRate, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
@@ -75,7 +75,9 @@ function buildHUDBar() {
         const skillSeg = `\x1b[95m⚡${state.activeSkill}\x1b[0m`;
         modules.push({ ansi: skillSeg, width: visibleLen(skillSeg) });
     }
-    const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m`;
+    const rateStr = formatTokenRate(state.tokenRate);
+    const rateSuffix = rateStr ? ` \x1b[33m${rateStr}\x1b[0m` : '';
+    const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
     modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
     modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
     const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
