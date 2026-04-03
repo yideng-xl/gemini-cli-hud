@@ -62,13 +62,13 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 ## 架构
 
 ```
-┌─────────────────────────────────────────┐
-│ Gemini CLI（Ink 渲染区）                │  滚动区域：第 1 行到第 N-K 行
-│ > 你的输入                              │
-│                                         │
-├──────────── gemini-cli-hud ─────────────┤  第 N-K+1 行：分隔线
-│ 模型 │ 元信息 │ Ctx: ██░░ │ 工具 │ 时间 │  第 N-K+2..N 行：内容
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ Gemini CLI (Ink render area)             │  scroll region: row 1..N-K
+│ > input                                  │
+│                                          │
+├─────────── gemini-cli-hud ───────────────┤  row N-K+1: separator
+│ model │ meta │ Ctx: ██░░ │ tools │ time  │  row N-K+2..N: content
+└──────────────────────────────────────────┘
 ```
 
 - **Daemon** (`daemon.js`)：后台进程，维护 HUD 状态（模型、token、工具、skill）。通过 Unix socket 接收事件。**不写入终端。**
