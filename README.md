@@ -73,37 +73,31 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ## Configuration
 
-Create `~/.gemini/hud.json` to customize the HUD. All fields are optional — missing fields use defaults.
+Create `~/.gemini/hud.json` to customize the HUD. All fields are optional — missing fields use defaults. Changes take effect on the next hook event (no restart needed).
 
 ### Presets
 
-Use a preset for quick setup:
+Three built-in presets for quick setup:
+
+| Preset | Modules | Description |
+|--------|---------|-------------|
+| `full` (default) | model, meta, skill, context, tools, cost, session | Everything visible |
+| `essential` | model, context, tools, session | Core info only, no meta/skill/cost |
+| `minimal` | model, context, session | Bare minimum |
+
+```jsonc
+{ "preset": "essential" }
+```
+
+### Recommended Configurations
+
+**Full config with all options (default):**
 
 ```jsonc
 // ~/.gemini/hud.json
-{ "preset": "full" }       // All modules (default)
-{ "preset": "essential" }   // model, context, tools, session
-{ "preset": "minimal" }     // model, context, session
-```
-
-### Custom Modules
-
-Override which modules appear and their order:
-
-```jsonc
 {
-  "modules": ["model", "context", "tools", "cost", "session"]
-}
-```
-
-Available modules: `model`, `meta`, `skill`, `context`, `tools`, `cost`, `session`.
-
-### Display Flags
-
-Toggle individual display elements:
-
-```jsonc
-{
+  "preset": "full",
+  "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -114,20 +108,94 @@ Toggle individual display elements:
     "showSkill": true,
     "showSession": true,
     "showMeta": true
-  }
+  },
+  "language": "en"
 }
 ```
 
-### Combining Preset + Overrides
+**Developer — focus on context & tools, skip cost:**
 
-Start from a preset, then override specific flags:
+```jsonc
+{
+  "preset": "essential",
+  "display": { "showTokenRate": true }
+}
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
+ ✓ Read ×8 | ✓ Bash ×4 │ Session: 12m
+```
+
+**Cost-conscious — track spending, hide meta:**
+
+```jsonc
+{
+  "modules": ["model", "context", "tools", "cost", "session"],
+  "display": { "showMeta": false, "showSkill": false }
+}
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M)
+ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K $0.021 │ Session: 12m
+```
+
+**Minimal — just model & context bar:**
+
+```jsonc
+{ "preset": "minimal" }
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
+```
+
+**Minimal + cost — compact but cost-aware:**
 
 ```jsonc
 {
   "preset": "minimal",
-  "display": { "showCost": true }
+  "display": { "showCost": true },
+  "modules": ["model", "context", "cost", "session"]
 }
 ```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
+```
+
+### Available Modules
+
+| Module | What it shows |
+|--------|---------------|
+| `model` | Model name + auth type (OAuth/API) |
+| `meta` | GEMINI.md file count + extensions count |
+| `skill` | Currently active skill/extension |
+| `context` | Context window progress bar + percentage + token rate |
+| `tools` | Tool call counts: `✓ Read ×8 \| ✓ Bash ×4` |
+| `cost` | Input/output tokens + estimated cost: `↑420K ↓52K $0.021` |
+| `session` | Elapsed time since session start |
+
+### Display Flags
+
+Fine-grained control over sub-elements within modules:
+
+| Flag | Default | Controls |
+|------|---------|----------|
+| `showModel` | `true` | Model name display |
+| `showAuth` | `true` | OAuth/API badge next to model |
+| `showContext` | `true` | Context progress bar |
+| `showTokenRate` | `true` | Token throughput (tok/s) |
+| `showTools` | `true` | Tool call statistics |
+| `showCost` | `true` | Cost estimation |
+| `showSkill` | `true` | Active skill name |
+| `showSession` | `true` | Session timer |
+| `showMeta` | `true` | GEMINI.md & extensions count |
 
 ### Language
 

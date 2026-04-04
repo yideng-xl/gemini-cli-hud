@@ -73,37 +73,31 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ## 配置
 
-创建 `~/.gemini/hud.json` 来自定义 HUD。所有字段均为可选 — 缺省使用默认值。
+创建 `~/.gemini/hud.json` 来自定义 HUD。所有字段均为可选 — 缺省使用默认值。修改后无需重启，下次 hook 事件触发时即刻生效。
 
 ### 预设
 
-使用预设快速配置：
+三种内置预设，快速切换：
+
+| 预设 | 包含模块 | 说明 |
+|------|---------|------|
+| `full`（默认） | model, meta, skill, context, tools, cost, session | 全部可见 |
+| `essential` | model, context, tools, session | 仅核心信息，隐藏 meta/skill/cost |
+| `minimal` | model, context, session | 最精简 |
+
+```jsonc
+{ "preset": "essential" }
+```
+
+### 推荐配置
+
+**完整配置（默认值）：**
 
 ```jsonc
 // ~/.gemini/hud.json
-{ "preset": "full" }       // 全部模块（默认）
-{ "preset": "essential" }   // model, context, tools, session
-{ "preset": "minimal" }     // model, context, session
-```
-
-### 自定义模块
-
-指定显示哪些模块及其顺序：
-
-```jsonc
 {
-  "modules": ["model", "context", "tools", "cost", "session"]
-}
-```
-
-可用模块：`model`、`meta`、`skill`、`context`、`tools`、`cost`、`session`。
-
-### 显示开关
-
-逐个控制显示元素：
-
-```jsonc
-{
+  "preset": "full",
+  "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -114,20 +108,94 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
     "showSkill": true,
     "showSession": true,
     "showMeta": true
-  }
+  },
+  "language": "en"
 }
 ```
 
-### 预设 + 覆盖
+**开发者模式 — 关注上下文和工具，不看费用：**
 
-在预设基础上覆盖特定选项：
+```jsonc
+{
+  "preset": "essential",
+  "display": { "showTokenRate": true }
+}
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
+ ✓ Read ×8 | ✓ Bash ×4 │ Session: 12m
+```
+
+**费用敏感型 — 追踪开销，隐藏 meta：**
+
+```jsonc
+{
+  "modules": ["model", "context", "tools", "cost", "session"],
+  "display": { "showMeta": false, "showSkill": false }
+}
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M)
+ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K $0.021 │ Session: 12m
+```
+
+**极简模式 — 只看模型和上下文：**
+
+```jsonc
+{ "preset": "minimal" }
+```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
+```
+
+**极简 + 费用 — 精简但关注成本：**
 
 ```jsonc
 {
   "preset": "minimal",
-  "display": { "showCost": true }
+  "display": { "showCost": true },
+  "modules": ["model", "context", "cost", "session"]
 }
 ```
+
+```
+─── gemini-cli-hud ───
+ gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
+```
+
+### 可用模块
+
+| 模块 | 显示内容 |
+|------|---------|
+| `model` | 模型名称 + 认证方式（OAuth/API） |
+| `meta` | GEMINI.md 文件数 + 扩展数 |
+| `skill` | 当前激活的 skill/扩展 |
+| `context` | 上下文窗口进度条 + 百分比 + token 速率 |
+| `tools` | 工具调用计数：`✓ Read ×8 \| ✓ Bash ×4` |
+| `cost` | 输入/输出 token 数 + 预估费用：`↑420K ↓52K $0.021` |
+| `session` | 会话已用时间 |
+
+### 显示开关
+
+模块内子元素的精细控制：
+
+| 开关 | 默认值 | 控制内容 |
+|------|--------|---------|
+| `showModel` | `true` | 模型名称 |
+| `showAuth` | `true` | 模型旁的 OAuth/API 标识 |
+| `showContext` | `true` | 上下文进度条 |
+| `showTokenRate` | `true` | Token 吞吐速率 (tok/s) |
+| `showTools` | `true` | 工具调用统计 |
+| `showCost` | `true` | 费用估算 |
+| `showSkill` | `true` | 活跃 skill 名称 |
+| `showSession` | `true` | 会话计时器 |
+| `showMeta` | `true` | GEMINI.md 和扩展计数 |
 
 ### 语言
 
