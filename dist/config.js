@@ -72,7 +72,9 @@ export function loadConfig() {
     let raw = {};
     try {
         if (fs.existsSync(configPath)) {
-            raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            const text = fs.readFileSync(configPath, 'utf8')
+                .replace(/^\s*\/\/.*$/gm, ''); // strip // comments for user convenience
+            raw = JSON.parse(text);
         }
     }
     catch {

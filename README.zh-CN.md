@@ -91,10 +91,9 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ### 推荐配置
 
-**完整配置（默认值）：**
+**完整配置（默认值）** — 保存到 `~/.gemini/hud.json`：
 
-```jsonc
-// ~/.gemini/hud.json
+```json
 {
   "preset": "full",
   "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
@@ -199,9 +198,13 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ### 语言
 
-```jsonc
-{ "language": "en" }  // English（默认）
-{ "language": "zh" }  // 简体中文
+| 值 | 语言 |
+|----|------|
+| `"en"` | English（默认） |
+| `"zh"` | 简体中文 — `上下文:` `会话:` `词元/秒` `扩展` |
+
+```json
+{ "language": "zh" }
 ```
 
 ## 架构

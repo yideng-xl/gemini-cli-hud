@@ -91,10 +91,9 @@ Three built-in presets for quick setup:
 
 ### Recommended Configurations
 
-**Full config with all options (default):**
+**Full config with all options (default)** — save to `~/.gemini/hud.json`:
 
-```jsonc
-// ~/.gemini/hud.json
+```json
 {
   "preset": "full",
   "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
@@ -199,9 +198,13 @@ Fine-grained control over sub-elements within modules:
 
 ### Language
 
-```jsonc
-{ "language": "en" }  // English (default)
-{ "language": "zh" }  // 简体中文
+| Value | Language |
+|-------|----------|
+| `"en"` | English (default) |
+| `"zh"` | 简体中文 — `上下文:` `会话:` `词元/秒` `扩展` |
+
+```json
+{ "language": "zh" }
 ```
 
 ## Architecture

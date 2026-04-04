@@ -52,6 +52,8 @@ const I18N = {
         ctx: 'Ctx:',
         session: 'Session:',
         ext: 'ext',
+        authOAuth: 'OAuth',
+        authAPI: 'API',
         tokPerSec: (r) => `${r} tok/s`,
     },
     zh: {
@@ -59,6 +61,8 @@ const I18N = {
         ctx: '上下文:',
         session: '会话:',
         ext: '扩展',
+        authOAuth: '订阅',
+        authAPI: 'API',
         tokPerSec: (r) => `${r} 词元/秒`,
     },
 };
@@ -84,8 +88,9 @@ function buildHUDBar() {
                 let modelSeg = `\x1b[1;32m${short}\x1b[0m`;
                 if (config.display.showAuth) {
                     const authType = detectAuthType();
+                    const authLabel = authType === 'OAuth' ? t.authOAuth : t.authAPI;
                     const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
-                    modelSeg += ` ${authColor}${authType}\x1b[0m`;
+                    modelSeg += ` ${authColor}${authLabel}\x1b[0m`;
                 }
                 modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
                 break;
