@@ -41,6 +41,8 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 - **Session Timer:** Elapsed time since session start.
 - **Multi-Session Support:** Each Gemini CLI instance gets its own isolated HUD daemon.
 - **Session Cleanup:** Automatically resets terminal scroll region on session exit.
+- **Configurable Layout:** Choose which modules to display, their order, and toggle individual elements via `~/.gemini/hud.json`.
+- **Presets:** Three built-in presets — `full`, `essential`, `minimal` — for quick setup.
 - **Responsive Layout:** Modules wrap to multiple lines on narrow terminals instead of truncating mid-text.
 - **Title Bar Fallback:** Also sets the terminal title (OSC 0) as a secondary display.
 
@@ -68,6 +70,71 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
    ```
 
 3. **Restart Gemini CLI.** The HUD appears automatically.
+
+## Configuration
+
+Create `~/.gemini/hud.json` to customize the HUD. All fields are optional — missing fields use defaults.
+
+### Presets
+
+Use a preset for quick setup:
+
+```jsonc
+// ~/.gemini/hud.json
+{ "preset": "full" }       // All modules (default)
+{ "preset": "essential" }   // model, context, tools, session
+{ "preset": "minimal" }     // model, context, session
+```
+
+### Custom Modules
+
+Override which modules appear and their order:
+
+```jsonc
+{
+  "modules": ["model", "context", "tools", "cost", "session"]
+}
+```
+
+Available modules: `model`, `meta`, `skill`, `context`, `tools`, `cost`, `session`.
+
+### Display Flags
+
+Toggle individual display elements:
+
+```jsonc
+{
+  "display": {
+    "showModel": true,
+    "showAuth": true,
+    "showContext": true,
+    "showTokenRate": true,
+    "showTools": true,
+    "showCost": true,
+    "showSkill": true,
+    "showSession": true,
+    "showMeta": true
+  }
+}
+```
+
+### Combining Preset + Overrides
+
+Start from a preset, then override specific flags:
+
+```jsonc
+{
+  "preset": "minimal",
+  "display": { "showCost": true }
+}
+```
+
+### Language
+
+```jsonc
+{ "language": "en" }  // English (default)
+{ "language": "zh" }  // 简体中文
+```
 
 ## Architecture
 
@@ -105,7 +172,6 @@ The hook renders the HUD synchronously during each event — no background timer
 
 1. **Native Statusline API:** If Google exposes a UI injection API for extensions, migrate to it for perfect integration.
 2. **Subscription Tier Display:** Show account tier (Free, Pro, Max) — blocked by upstream API ([#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)).
-3. **Configurable Layout:** Let users choose which modules to display and in what order.
 
 ## Inspiration
 

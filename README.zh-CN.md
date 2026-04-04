@@ -41,6 +41,8 @@
 - **会话计时：** 从会话开始的已用时间。
 - **多会话支持：** 每个 Gemini CLI 实例拥有独立的 HUD daemon，互不干扰。
 - **会话退出清理：** 退出时自动重置终端滚动区域，无需手动 `reset`。
+- **可配置布局：** 通过 `~/.gemini/hud.json` 选择显示哪些模块、调整顺序、开关单个元素。
+- **内置预设：** 三种预设 — `full`、`essential`、`minimal` — 快速切换。
 - **响应式布局：** 窄终端时模块整体换行，不会在模块中间截断。
 - **标题栏回退：** 同时设置终端标题 (OSC 0) 作为辅助显示。
 
@@ -68,6 +70,71 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
    ```
 
 3. **重启 Gemini CLI。** HUD 会自动出现。
+
+## 配置
+
+创建 `~/.gemini/hud.json` 来自定义 HUD。所有字段均为可选 — 缺省使用默认值。
+
+### 预设
+
+使用预设快速配置：
+
+```jsonc
+// ~/.gemini/hud.json
+{ "preset": "full" }       // 全部模块（默认）
+{ "preset": "essential" }   // model, context, tools, session
+{ "preset": "minimal" }     // model, context, session
+```
+
+### 自定义模块
+
+指定显示哪些模块及其顺序：
+
+```jsonc
+{
+  "modules": ["model", "context", "tools", "cost", "session"]
+}
+```
+
+可用模块：`model`、`meta`、`skill`、`context`、`tools`、`cost`、`session`。
+
+### 显示开关
+
+逐个控制显示元素：
+
+```jsonc
+{
+  "display": {
+    "showModel": true,
+    "showAuth": true,
+    "showContext": true,
+    "showTokenRate": true,
+    "showTools": true,
+    "showCost": true,
+    "showSkill": true,
+    "showSession": true,
+    "showMeta": true
+  }
+}
+```
+
+### 预设 + 覆盖
+
+在预设基础上覆盖特定选项：
+
+```jsonc
+{
+  "preset": "minimal",
+  "display": { "showCost": true }
+}
+```
+
+### 语言
+
+```jsonc
+{ "language": "en" }  // English（默认）
+{ "language": "zh" }  // 简体中文
+```
 
 ## 架构
 
@@ -105,7 +172,6 @@ Hook 在每个事件期间同步渲染 HUD — 无后台定时器、无轮询、
 
 1. **原生 Statusline API：** 如果 Google 开放扩展 UI 注入 API，迁移到原生方案以实现完美集成。
 2. **订阅等级显示：** 展示当前账号等级（Free、Pro、Max）— 等待上游 API 开放（[#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)）。
-3. **可配置布局：** 让用户选择显示哪些模块及其顺序。
 
 ## 灵感来源
 

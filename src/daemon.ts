@@ -28,6 +28,7 @@ import {
   countGeminiMd,
   countExtensions,
 } from './hud-utils.js';
+import { loadConfig, type HudConfig } from './config.js';
 
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
@@ -71,6 +72,7 @@ function getTerminalSize(): { rows: number; cols: number } {
 
 function buildHUDBar(): string[] {
   const { cols } = getTerminalSize();
+  const config = loadConfig();
 
   // Before first AfterModel event, show waiting state
   if (!state.model) {
@@ -82,52 +84,79 @@ function buildHUDBar(): string[] {
   const short = state.model.replace(/^models\//, '').replace(/-preview$|-latest$/, '');
   const elapsed = formatElapsed(state.sessionStart);
 
-  const toolEntries = Object.entries(state.tools);
-  const toolStr = toolEntries.length > 0
-    ? toolEntries.map(([n, c]) => `\x1b[32m✓\x1b[0m ${n} \x1b[90m×${c}\x1b[0m`).join(' \x1b[90m|\x1b[0m ')
-    : '-';
-
-  const usedStr = formatTokens(used);
-  const totalStr = formatTokens(total);
-
-  const barWidth = Math.min(20, Math.max(4, Math.floor(cols * 0.12)));
-  const bar = createProgressBar(pct, barWidth);
-
-  const mdCount = countGeminiMd(state.cwd);
-  const extCount = countExtensions();
-
   // Define modules — each is an atomic unit that never breaks mid-content
+  // Order follows config.modules; display flags control sub-options
   const modules: { ansi: string; width: number }[] = [];
 
-  const authType = detectAuthType();
-  const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
-  const modelSeg = `\x1b[1;32m${short}\x1b[0m ${authColor}${authType}\x1b[0m`;
-  modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
-
-  const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ext\x1b[0m`;
-  modules.push({ ansi: metaSeg, width: visibleLen(metaSeg) });
-
-  if (state.activeSkill) {
-    const skillSeg = `\x1b[95m⚡${state.activeSkill}\x1b[0m`;
-    modules.push({ ansi: skillSeg, width: visibleLen(skillSeg) });
+  for (const mod of config.modules) {
+    switch (mod) {
+      case 'model': {
+        let modelSeg = `\x1b[1;32m${short}\x1b[0m`;
+        if (config.display.showAuth) {
+          const authType = detectAuthType();
+          const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
+          modelSeg += ` ${authColor}${authType}\x1b[0m`;
+        }
+        modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
+        break;
+      }
+      case 'meta': {
+        if (config.display.showMeta) {
+          const mdCount = countGeminiMd(state.cwd);
+          const extCount = countExtensions();
+          const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ext\x1b[0m`;
+          modules.push({ ansi: metaSeg, width: visibleLen(metaSeg) });
+        }
+        break;
+      }
+      case 'skill': {
+        if (config.display.showSkill && state.activeSkill) {
+          const skillSeg = `\x1b[95m⚡${state.activeSkill}\x1b[0m`;
+          modules.push({ ansi: skillSeg, width: visibleLen(skillSeg) });
+        }
+        break;
+      }
+      case 'context': {
+        if (config.display.showContext) {
+          const usedStr = formatTokens(used);
+          const totalStr = formatTokens(total);
+          const barWidth = Math.min(20, Math.max(4, Math.floor(cols * 0.12)));
+          const bar = createProgressBar(pct, barWidth);
+          const rateStr = config.display.showTokenRate ? formatTokenRate(state.tokenRate) : '';
+          const rateSuffix = rateStr ? ` \x1b[33m${rateStr}\x1b[0m` : '';
+          const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
+          modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
+        }
+        break;
+      }
+      case 'tools': {
+        if (config.display.showTools) {
+          const toolEntries = Object.entries(state.tools);
+          const toolStr = toolEntries.length > 0
+            ? toolEntries.map(([n, c]) => `\x1b[32m✓\x1b[0m ${n} \x1b[90m×${c}\x1b[0m`).join(' \x1b[90m|\x1b[0m ')
+            : '-';
+          modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
+        }
+        break;
+      }
+      case 'cost': {
+        if (config.display.showCost && state.estimatedCost > 0) {
+          const inStr = formatTokens(state.totalInputTokens);
+          const outStr = formatTokens(state.totalOutputTokens);
+          const costSeg = `\x1b[33m↑${inStr} ↓${outStr} ${formatCost(state.estimatedCost)}\x1b[0m`;
+          modules.push({ ansi: costSeg, width: visibleLen(costSeg) });
+        }
+        break;
+      }
+      case 'session': {
+        if (config.display.showSession) {
+          const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
+          modules.push({ ansi: sessionSeg, width: visibleLen(sessionSeg) });
+        }
+        break;
+      }
+    }
   }
-
-  const rateStr = formatTokenRate(state.tokenRate);
-  const rateSuffix = rateStr ? ` \x1b[33m${rateStr}\x1b[0m` : '';
-  const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
-  modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
-
-  modules.push({ ansi: toolStr, width: visibleLen(toolStr) });
-
-  if (state.estimatedCost > 0) {
-    const inStr = formatTokens(state.totalInputTokens);
-    const outStr = formatTokens(state.totalOutputTokens);
-    const costSeg = `\x1b[33m↑${inStr} ↓${outStr} ${formatCost(state.estimatedCost)}\x1b[0m`;
-    modules.push({ ansi: costSeg, width: visibleLen(costSeg) });
-  }
-
-  const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
-  modules.push({ ansi: sessionSeg, width: visibleLen(sessionSeg) });
 
   const contentLines = packModulesIntoLines(modules, cols);
 
