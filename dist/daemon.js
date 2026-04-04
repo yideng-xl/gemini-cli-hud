@@ -9,7 +9,7 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { execSync } from 'child_process';
-import { createInitialState, formatElapsed, formatTokens, formatTokenRate, formatCost, detectAuthType, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
+import { createInitialState, formatElapsed, formatTokens, formatCost, detectAuthType, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
 import { loadConfig } from './config.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
@@ -45,13 +45,31 @@ function getTerminalSize() {
     catch { /* fall through */ }
     return { rows: 24, cols: 80 };
 }
+// ─── i18n ────────────────────────────────────────────────────────────────────
+const I18N = {
+    en: {
+        waiting: 'waiting for session...',
+        ctx: 'Ctx:',
+        session: 'Session:',
+        ext: 'ext',
+        tokPerSec: (r) => `${r} tok/s`,
+    },
+    zh: {
+        waiting: '等待会话...',
+        ctx: '上下文:',
+        session: '会话:',
+        ext: '扩展',
+        tokPerSec: (r) => `${r} 词元/秒`,
+    },
+};
 // ─── Rendering ──────────────────────────────────────────────────────────────
 function buildHUDBar() {
     const { cols } = getTerminalSize();
     const config = loadConfig();
+    const t = I18N[config.language];
     // Before first AfterModel event, show waiting state
     if (!state.model) {
-        return [buildSeparator(cols), ` \x1b[2mwaiting for session...\x1b[0m`];
+        return [buildSeparator(cols), ` \x1b[2m${t.waiting}\x1b[0m`];
     }
     const { used, total } = state.tokens;
     const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
@@ -76,7 +94,7 @@ function buildHUDBar() {
                 if (config.display.showMeta) {
                     const mdCount = countGeminiMd(state.cwd);
                     const extCount = countExtensions();
-                    const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ext\x1b[0m`;
+                    const metaSeg = `\x1b[36m${mdCount} GEMINI.md\x1b[0m \x1b[35m${extCount} ${t.ext}\x1b[0m`;
                     modules.push({ ansi: metaSeg, width: visibleLen(metaSeg) });
                 }
                 break;
@@ -94,9 +112,13 @@ function buildHUDBar() {
                     const totalStr = formatTokens(total);
                     const barWidth = Math.min(20, Math.max(4, Math.floor(cols * 0.12)));
                     const bar = createProgressBar(pct, barWidth);
-                    const rateStr = config.display.showTokenRate ? formatTokenRate(state.tokenRate) : '';
-                    const rateSuffix = rateStr ? ` \x1b[33m${rateStr}\x1b[0m` : '';
-                    const ctxSeg = `\x1b[1mCtx:\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
+                    const rateNum = config.display.showTokenRate ? state.tokenRate : 0;
+                    let rateSuffix = '';
+                    if (rateNum > 0) {
+                        const rateVal = rateNum >= 1000 ? `${(rateNum / 1000).toFixed(1)}K` : `${rateNum}`;
+                        rateSuffix = ` \x1b[33m${t.tokPerSec(rateVal)}\x1b[0m`;
+                    }
+                    const ctxSeg = `\x1b[1m${t.ctx}\x1b[0m ${bar} ${pct}% \x1b[2m(${usedStr}/${totalStr})\x1b[0m${rateSuffix}`;
                     modules.push({ ansi: ctxSeg, width: visibleLen(ctxSeg) });
                 }
                 break;
@@ -122,7 +144,7 @@ function buildHUDBar() {
             }
             case 'session': {
                 if (config.display.showSession) {
-                    const sessionSeg = `\x1b[36mSession: ${elapsed}\x1b[0m`;
+                    const sessionSeg = `\x1b[36m${t.session} ${elapsed}\x1b[0m`;
                     modules.push({ ansi: sessionSeg, width: visibleLen(sessionSeg) });
                 }
                 break;
