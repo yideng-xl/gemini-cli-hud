@@ -23,7 +23,7 @@
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
  gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
- ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ ↑420K ↓52K $0.021 │ Session: 12m
+ main* ↑2 │ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K ⚡20K $0.021 │ Mem: 77% │ Pro xulei │ Session: 12m
 ```
 
 ## 核心特性
@@ -39,6 +39,10 @@
 - **扩展计数：** 显示已安装的 Gemini CLI 扩展数量。
 - **活跃 Skill 追踪：** 显示当前激活的 skill/extension。
 - **会话计时：** 从会话开始的已用时间。
+- **Git 集成：** 显示当前分支、未提交更改标记、以及与上游的领先/落后提交数。
+- **系统内存监控：** 实时内存使用情况（macOS `vm_stat` + 跨平台回退）。
+- **Token 缓存明细：** 单独显示缓存内容 token：`↑420K ↓52K ⚡20K $0.021`。
+- **账号与配额显示：** 通过 Google API 显示订阅等级和当前账号。
 - **多会话支持：** 每个 Gemini CLI 实例拥有独立的 HUD daemon，互不干扰。
 - **会话退出清理：** 退出时自动重置终端滚动区域，无需手动 `reset`。
 - **可配置布局：** 通过 `~/.gemini/hud.json` 选择显示哪些模块、调整顺序、开关单个元素。
@@ -81,8 +85,8 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 | 预设 | 包含模块 | 说明 |
 |------|---------|------|
-| `full`（默认） | model, meta, skill, context, tools, cost, session | 全部可见 |
-| `essential` | model, context, tools, session | 仅核心信息，隐藏 meta/skill/cost |
+| `full`（默认） | model, meta, skill, context, git, tools, cost, memory, quota, session | 全部可见 |
+| `essential` | model, context, git, tools, session | 核心信息 + git，隐藏 meta/skill/cost |
 | `minimal` | model, context, session | 最精简 |
 
 ```jsonc
@@ -96,7 +100,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 ```json
 {
   "preset": "full",
-  "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
+  "modules": ["model", "meta", "skill", "context", "git", "tools", "cost", "memory", "quota", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -106,7 +110,10 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
     "showCost": true,
     "showSkill": true,
     "showSession": true,
-    "showMeta": true
+    "showMeta": true,
+    "showGit": true,
+    "showMemory": true,
+    "showQuota": true
   },
   "language": "en"
 }
@@ -178,6 +185,9 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | `context` | 上下文窗口进度条 + 百分比 + token 速率 |
 | `tools` | 工具调用计数：`✓ Read ×8 \| ✓ Bash ×4` |
 | `cost` | 输入/输出 token 数 + 预估费用：`↑420K ↓52K $0.021` |
+| `git` | Git 分支、未提交状态、领先/落后：`main* ↑3 ↓1` |
+| `memory` | 系统内存：`Mem: 77% (12.3/16.0GB)` |
+| `quota` | 订阅等级 + 账号：`Pro xulei0331` |
 | `session` | 会话已用时间 |
 
 ### 显示开关
@@ -195,6 +205,9 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | `showSkill` | `true` | 活跃 skill 名称 |
 | `showSession` | `true` | 会话计时器 |
 | `showMeta` | `true` | GEMINI.md 和扩展计数 |
+| `showGit` | `true` | Git 分支和状态 |
+| `showMemory` | `true` | 系统内存使用 |
+| `showQuota` | `true` | 账号等级与配额信息 |
 
 ### 语言
 
@@ -242,7 +255,8 @@ Hook 在每个事件期间同步渲染 HUD — 无后台定时器、无轮询、
 ## 后续计划
 
 1. **原生 Statusline API：** 如果 Google 开放扩展 UI 注入 API，迁移到原生方案以实现完美集成。
-2. **订阅等级显示：** 展示当前账号等级（Free、Pro、Max）— 等待上游 API 开放（[#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)）。
+2. **Todo/任务进度：** 显示任务完成状态 — 等待上游 hook 事件支持。
+3. **零依赖迁移：** 移除 React/Ink 运行时依赖，实现更轻量的安装。
 
 ## 灵感来源
 

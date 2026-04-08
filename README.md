@@ -23,7 +23,7 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 ```
 ─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
  gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
- ✓ Read ×8 | ✓ Bash ×4 | ✓ Edit ×3 │ ↑420K ↓52K $0.021 │ Session: 12m
+ main* ↑2 │ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K ⚡20K $0.021 │ Mem: 77% │ Pro xulei │ Session: 12m
 ```
 
 ## Features
@@ -39,6 +39,10 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 - **Extensions Counter:** Shows installed Gemini CLI extensions count.
 - **Active Skill Tracking:** Displays the currently activated skill/extension.
 - **Session Timer:** Elapsed time since session start.
+- **Git Integration:** Displays current branch, dirty state indicator, and ahead/behind upstream counts.
+- **System Memory Monitor:** Real-time memory usage (macOS `vm_stat` with cross-platform fallback).
+- **Token Cache Breakdown:** Shows cached content tokens separately: `↑420K ↓52K ⚡20K $0.021`.
+- **Account & Quota Display:** Shows subscription tier (Free/Pro/Ultra) and active account via Google API.
 - **Multi-Session Support:** Each Gemini CLI instance gets its own isolated HUD daemon.
 - **Session Cleanup:** Automatically resets terminal scroll region on session exit.
 - **Configurable Layout:** Choose which modules to display, their order, and toggle individual elements via `~/.gemini/hud.json`.
@@ -81,8 +85,8 @@ Three built-in presets for quick setup:
 
 | Preset | Modules | Description |
 |--------|---------|-------------|
-| `full` (default) | model, meta, skill, context, tools, cost, session | Everything visible |
-| `essential` | model, context, tools, session | Core info only, no meta/skill/cost |
+| `full` (default) | model, meta, skill, context, git, tools, cost, memory, quota, session | Everything visible |
+| `essential` | model, context, git, tools, session | Core info + git, no meta/skill/cost |
 | `minimal` | model, context, session | Bare minimum |
 
 ```jsonc
@@ -96,7 +100,7 @@ Three built-in presets for quick setup:
 ```json
 {
   "preset": "full",
-  "modules": ["model", "meta", "skill", "context", "tools", "cost", "session"],
+  "modules": ["model", "meta", "skill", "context", "git", "tools", "cost", "memory", "quota", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -106,7 +110,10 @@ Three built-in presets for quick setup:
     "showCost": true,
     "showSkill": true,
     "showSession": true,
-    "showMeta": true
+    "showMeta": true,
+    "showGit": true,
+    "showMemory": true,
+    "showQuota": true
   },
   "language": "en"
 }
@@ -178,6 +185,9 @@ Three built-in presets for quick setup:
 | `context` | Context window progress bar + percentage + token rate |
 | `tools` | Tool call counts: `✓ Read ×8 \| ✓ Bash ×4` |
 | `cost` | Input/output tokens + estimated cost: `↑420K ↓52K $0.021` |
+| `git` | Git branch, dirty state, ahead/behind: `main* ↑3 ↓1` |
+| `memory` | System memory: `Mem: 77% (12.3/16.0GB)` |
+| `quota` | Subscription tier + account: `Pro xulei0331` |
 | `session` | Elapsed time since session start |
 
 ### Display Flags
@@ -195,6 +205,9 @@ Fine-grained control over sub-elements within modules:
 | `showSkill` | `true` | Active skill name |
 | `showSession` | `true` | Session timer |
 | `showMeta` | `true` | GEMINI.md & extensions count |
+| `showGit` | `true` | Git branch and status |
+| `showMemory` | `true` | System memory usage |
+| `showQuota` | `true` | Account tier and quota info |
 
 ### Language
 
@@ -242,7 +255,8 @@ The hook renders the HUD synchronously during each event — no background timer
 ## Roadmap
 
 1. **Native Statusline API:** If Google exposes a UI injection API for extensions, migrate to it for perfect integration.
-2. **Subscription Tier Display:** Show account tier (Free, Pro, Max) — blocked by upstream API ([#1](https://github.com/yideng-xl/gemini-cli-hud/issues/1)).
+2. **Todo/Task Progress:** Display task completion status — pending upstream hook event support.
+3. **Zero Dependency Migration:** Remove React/Ink runtime dependency for lighter installation.
 
 ## Inspiration
 
