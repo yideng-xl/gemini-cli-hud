@@ -11,6 +11,9 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { createInitialState, formatElapsed, formatTokens, formatCost, detectAuthType, createProgressBar, visibleLen, buildSeparator, buildTitle, packModulesIntoLines, processEvent, countGeminiMd, countExtensions, } from './hud-utils.js';
 import { loadConfig } from './config.js';
+import { parseGitStatus, formatGitModule } from './git-utils.js';
+import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
+import { getQuotaWithCache, formatQuotaModule } from './quota.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
@@ -23,6 +26,7 @@ function log(msg) {
     catch { /* ignore */ }
 }
 let state = createInitialState();
+let quotaState = null;
 // Cached terminal size from hook (hook has access to real /dev/tty)
 const cachedTermSize = { rows: 0, cols: 0 };
 function getTerminalSize() {
@@ -54,6 +58,7 @@ const I18N = {
         ext: 'ext',
         authOAuth: 'OAuth',
         authAPI: 'API',
+        mem: 'Mem:',
         tokPerSec: (r) => `${r} tok/s`,
     },
     zh: {
@@ -63,6 +68,7 @@ const I18N = {
         ext: '扩展',
         authOAuth: '订阅',
         authAPI: 'API',
+        mem: '内存:',
         tokPerSec: (r) => `${r} 词元/秒`,
     },
 };
@@ -128,6 +134,16 @@ function buildHUDBar() {
                 }
                 break;
             }
+            case 'git': {
+                if (config.display.showGit && state.cwd) {
+                    const gitInfo = parseGitStatus(state.cwd);
+                    if (gitInfo) {
+                        const gitMod = formatGitModule(gitInfo);
+                        modules.push(gitMod);
+                    }
+                }
+                break;
+            }
             case 'tools': {
                 if (config.display.showTools) {
                     const toolEntries = Object.entries(state.tools);
@@ -142,8 +158,29 @@ function buildHUDBar() {
                 if (config.display.showCost && state.estimatedCost > 0) {
                     const inStr = formatTokens(state.totalInputTokens);
                     const outStr = formatTokens(state.totalOutputTokens);
-                    const costSeg = `\x1b[33m↑${inStr} ↓${outStr} ${formatCost(state.estimatedCost)}\x1b[0m`;
+                    let costSeg = `\x1b[33m↑${inStr} ↓${outStr}`;
+                    if (state.totalCacheTokens > 0) {
+                        costSeg += ` ⚡${formatTokens(state.totalCacheTokens)}`;
+                    }
+                    costSeg += ` ${formatCost(state.estimatedCost)}\x1b[0m`;
                     modules.push({ ansi: costSeg, width: visibleLen(costSeg) });
+                }
+                break;
+            }
+            case 'memory': {
+                if (config.display.showMemory) {
+                    const memInfo = getMemoryUsage();
+                    if (memInfo) {
+                        const memMod = formatMemoryModule(memInfo);
+                        modules.push(memMod);
+                    }
+                }
+                break;
+            }
+            case 'quota': {
+                if (config.display.showQuota && quotaState) {
+                    const quotaMod = formatQuotaModule(quotaState);
+                    modules.push(quotaMod);
                 }
                 break;
             }
@@ -175,6 +212,10 @@ function handleEvent(event) {
     if (event['_termRows'])
         cachedTermSize.rows = event['_termRows'];
     state = processEvent(state, event);
+    if (event['hook_event_name'] === 'SessionStart' || event['hook_event_name'] === 'AfterModel') {
+        // Fire and forget — don't block rendering
+        getQuotaWithCache().then(q => { quotaState = q; }).catch(() => { });
+    }
 }
 // ─── Socket server ──────────────────────────────────────────────────────────
 if (fs.existsSync(SOCKET_PATH)) {

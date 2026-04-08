@@ -8,8 +8,8 @@ import fs from 'fs';
 import path from 'path';
 // ─── Presets ────────────────────────────────────────────────────────────────
 const PRESET_MODULES = {
-    full: ['model', 'meta', 'skill', 'context', 'tools', 'cost', 'session'],
-    essential: ['model', 'context', 'tools', 'session'],
+    full: ['model', 'meta', 'skill', 'context', 'git', 'tools', 'cost', 'memory', 'quota', 'session'],
+    essential: ['model', 'context', 'git', 'tools', 'session'],
     minimal: ['model', 'context', 'session'],
 };
 const PRESET_DISPLAY = {
@@ -23,6 +23,9 @@ const PRESET_DISPLAY = {
         showSkill: true,
         showSession: true,
         showMeta: true,
+        showGit: true,
+        showMemory: true,
+        showQuota: true,
     },
     essential: {
         showModel: true,
@@ -34,6 +37,9 @@ const PRESET_DISPLAY = {
         showSkill: false,
         showSession: true,
         showMeta: false,
+        showGit: true,
+        showMemory: false,
+        showQuota: false,
     },
     minimal: {
         showModel: true,
@@ -45,6 +51,9 @@ const PRESET_DISPLAY = {
         showSkill: false,
         showSession: true,
         showMeta: false,
+        showGit: false,
+        showMemory: false,
+        showQuota: false,
     },
 };
 // ─── Defaults ───────────────────────────────────────────────────────────────
@@ -56,7 +65,7 @@ export const DEFAULT_CONFIG = {
 };
 // ─── Validation helpers ─────────────────────────────────────────────────────
 const VALID_MODULES = new Set([
-    'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session',
+    'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota',
 ]);
 const VALID_PRESETS = new Set(['full', 'essential', 'minimal']);
 function isValidModule(m) {

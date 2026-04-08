@@ -52,11 +52,9 @@ export function parseGitStatus(cwd: string): GitInfo | null {
 // ─── Formatting ─────────────────────────────────────────────────────────────
 
 export function formatGitModule(info: GitInfo): { ansi: string; width: number } {
-  let ansi = `\x1b[34m${info.branch}\x1b[0m`;
-
-  if (info.dirty) {
-    ansi += `\x1b[33m*\x1b[0m`;
-  }
+  // oh-my-zsh style: git:(main*) ↑3 ↓1
+  const branch = info.branch + (info.dirty ? '*' : '');
+  let ansi = `\x1b[34mgit:(\x1b[31m${branch}\x1b[34m)\x1b[0m`;
 
   if (info.ahead > 0) {
     ansi += ` \x1b[32m↑${info.ahead}\x1b[0m`;

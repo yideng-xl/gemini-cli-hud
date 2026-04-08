@@ -44,7 +44,7 @@ describe('loadConfig', () => {
             preset: 'essential',
         }));
         const config = loadConfig();
-        expect(config.modules).toEqual(['model', 'context', 'tools', 'session']);
+        expect(config.modules).toEqual(['model', 'context', 'git', 'tools', 'session']);
         expect(config.display.showMeta).toBe(false);
         expect(config.display.showCost).toBe(false);
         expect(config.display.showTools).toBe(true);
@@ -120,5 +120,67 @@ describe('loadConfig', () => {
         }));
         const config = loadConfig();
         expect(config.preset).toBe('full'); // default
+    });
+    describe('new v0.5.0 config options', () => {
+        it('accepts git as a valid module', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                modules: ['model', 'git'],
+            }));
+            const config = loadConfig();
+            expect(config.modules).toEqual(['model', 'git']);
+        });
+        it('accepts memory as a valid module', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                modules: ['model', 'memory'],
+            }));
+            const config = loadConfig();
+            expect(config.modules).toEqual(['model', 'memory']);
+        });
+        it('accepts quota as a valid module', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                modules: ['model', 'quota'],
+            }));
+            const config = loadConfig();
+            expect(config.modules).toEqual(['model', 'quota']);
+        });
+        it('full preset includes all 3 new modules', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                preset: 'full',
+            }));
+            const config = loadConfig();
+            expect(config.modules).toContain('git');
+            expect(config.modules).toContain('memory');
+            expect(config.modules).toContain('quota');
+        });
+        it('showGit, showMemory, showQuota exist as boolean flags', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                preset: 'full',
+            }));
+            const config = loadConfig();
+            expect(typeof config.display.showGit).toBe('boolean');
+            expect(typeof config.display.showMemory).toBe('boolean');
+            expect(typeof config.display.showQuota).toBe('boolean');
+            expect(config.display.showGit).toBe(true);
+            expect(config.display.showMemory).toBe(true);
+            expect(config.display.showQuota).toBe(true);
+        });
+        it('essential preset includes git but not quota/memory', () => {
+            vi.mocked(fs.existsSync).mockReturnValue(true);
+            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
+                preset: 'essential',
+            }));
+            const config = loadConfig();
+            expect(config.modules).toContain('git');
+            expect(config.modules).not.toContain('memory');
+            expect(config.modules).not.toContain('quota');
+            expect(config.display.showGit).toBe(true);
+            expect(config.display.showMemory).toBe(false);
+            expect(config.display.showQuota).toBe(false);
+        });
     });
 });

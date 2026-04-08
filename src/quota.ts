@@ -7,7 +7,9 @@
 
 import fs   from 'fs';
 import path from 'path';
+import http from 'http';
 import https from 'https';
+import { execSync } from 'child_process';
 import { visibleLen } from './hud-utils.js';
 
 const HOME = process.env['HOME'] || '';
@@ -70,13 +72,77 @@ export function readActiveAccount(filePath: string = DEFAULT_ACCOUNTS_PATH): str
   }
 }
 
+// ─── Proxy detection ────────────────────────────────────────────────────────
+
+interface ProxyConfig { host: string; port: number }
+
+function detectProxy(): ProxyConfig | null {
+  // 1. Check env vars
+  const envProxy = process.env['HTTPS_PROXY'] || process.env['https_proxy'] ||
+                   process.env['HTTP_PROXY']  || process.env['http_proxy']  ||
+                   process.env['ALL_PROXY']   || process.env['all_proxy'];
+  if (envProxy) {
+    try {
+      const url = new URL(envProxy.startsWith('http') ? envProxy : `http://${envProxy}`);
+      return { host: url.hostname, port: parseInt(url.port, 10) || 7897 };
+    } catch { /* ignore */ }
+  }
+
+  // 2. macOS: read system proxy via networksetup
+  if (process.platform === 'darwin') {
+    try {
+      const out = execSync('networksetup -getsecurewebproxy Wi-Fi', {
+        encoding: 'utf8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      const enabled = /Enabled:\s*Yes/i.test(out);
+      if (enabled) {
+        const hostMatch = out.match(/Server:\s*(\S+)/);
+        const portMatch = out.match(/Port:\s*(\d+)/);
+        if (hostMatch && portMatch) {
+          return { host: hostMatch[1], port: parseInt(portMatch[1], 10) };
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return null;
+}
+
+/**
+ * Get an https.Agent that tunnels through the system proxy.
+ * Returns null if no proxy, meaning use direct connection.
+ */
+function getProxyAgent(hostname: string, port: number | string = 443): Promise<https.Agent | null> {
+  const proxy = detectProxy();
+  if (!proxy) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const connectReq = http.request({
+      host: proxy.host,
+      port: proxy.port,
+      method: 'CONNECT',
+      path: `${hostname}:${port}`,
+      timeout: 5000,
+    });
+
+    connectReq.on('connect', (_res, socket) => {
+      resolve(new https.Agent({ socket }));
+    });
+    connectReq.on('error', () => resolve(null));
+    connectReq.on('timeout', () => { connectReq.destroy(); resolve(null); });
+    connectReq.end();
+  });
+}
+
 // ─── Token refresh ──────────────────────────────────────────────────────────
 
 const CLIENT_ID = '539249604372-fir0ep2rrfq8skao3job0pfrqhb5ghlg.apps.googleusercontent.com';
 // Gemini CLI is a public/installed-app OAuth client; no secret is required.
 const CLIENT_SECRET = '';
 
-export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCredentials | null> {
+export async function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCredentials | null> {
+  const agent = await getProxyAgent('oauth2.googleapis.com');
+
   return new Promise((resolve) => {
     const body = new URLSearchParams({
       client_id: CLIENT_ID,
@@ -94,6 +160,7 @@ export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCreden
           'Content-Length': Buffer.byteLength(body).toString(),
         },
         timeout: 5000,
+        ...(agent ? { agent } : {}),
       },
       (res) => {
         if (res.statusCode && res.statusCode >= 400) {
@@ -112,7 +179,6 @@ export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCreden
               expiry_date: Date.now() + (json.expires_in ?? 3600) * 1000,
               token_type: json.token_type ?? creds.token_type,
             };
-            // Write updated creds back
             try {
               fs.writeFileSync(DEFAULT_CREDS_PATH, JSON.stringify(updated, null, 2), 'utf8');
             } catch { /* ignore write errors */ }
@@ -133,9 +199,12 @@ export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCreden
 
 // ─── Quota fetching ─────────────────────────────────────────────────────────
 
-const CODE_ASSIST_URL = 'https://client-side-ai.google.com/v1/com.google.aia:loadCodeAssist';
+const CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist';
 
-export function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
+export async function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
+  const parsed = new URL(CODE_ASSIST_URL);
+  const agent = await getProxyAgent(parsed.hostname);
+
   return new Promise((resolve) => {
     const body = '{}';
 
@@ -149,6 +218,7 @@ export function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
           'Content-Length': Buffer.byteLength(body).toString(),
         },
         timeout: 8000,
+        ...(agent ? { agent } : {}),
       },
       (res) => {
         if (res.statusCode && res.statusCode >= 400) {
@@ -161,17 +231,15 @@ export function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
           try {
             const json = JSON.parse(data);
 
-            // Parse tier
+            // Parse tier — actual response has paidTier.id and currentTier.id
             let tier = 'Free';
-            if (json.subscriptionTier?.paidTier) {
-              tier = json.subscriptionTier.paidTier;
-            } else if (json.currentTier) {
-              tier = json.currentTier;
-            }
-            // Normalise tier name
-            if (tier.toLowerCase().includes('pro')) tier = 'Pro';
-            else if (tier.toLowerCase().includes('ultra')) tier = 'Ultra';
-            else if (tier.toLowerCase().includes('free') || tier === 'FREE_TIER') tier = 'Free';
+            const paidId = json.paidTier?.id ?? json.paidTier?.name ?? '';
+            const currentId = json.currentTier?.id ?? json.currentTier?.name ?? '';
+            const tierStr = (paidId || currentId).toLowerCase();
+            if (tierStr.includes('pro')) tier = 'Pro';
+            else if (tierStr.includes('ultra') || tierStr.includes('max')) tier = 'Ultra';
+            else if (tierStr.includes('standard')) tier = 'Pro'; // standard-tier = paid
+            else if (tierStr.includes('free')) tier = 'Free';
 
             // Parse account
             const account = readActiveAccount() ?? 'unknown';

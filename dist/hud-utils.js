@@ -135,6 +135,7 @@ export function createInitialState() {
         lastModelTokens: 0,
         totalInputTokens: 0,
         totalOutputTokens: 0,
+        totalCacheTokens: 0,
         estimatedCost: 0,
     };
 }
@@ -246,6 +247,7 @@ export function processEvent(state, event) {
             next.lastModelTokens = 0;
             next.totalInputTokens = 0;
             next.totalOutputTokens = 0;
+            next.totalCacheTokens = 0;
             next.estimatedCost = 0;
             break;
         case 'AfterModel': {
@@ -279,6 +281,10 @@ export function processEvent(state, event) {
                 }
                 next.lastModelTime = now;
                 next.lastModelTokens = newUsed;
+            }
+            const cacheTokens = usage?.['cachedContentTokenCount'] ?? 0;
+            if (cacheTokens > 0) {
+                next.totalCacheTokens += cacheTokens;
             }
             // Accumulate cost per request
             if (inputTokens > 0 || outputTokens > 0) {
