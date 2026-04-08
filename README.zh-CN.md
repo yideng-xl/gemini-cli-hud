@@ -16,14 +16,14 @@
 
 ## 效果预览
 
+![Gemini CLI HUD v0.5.0](docs/gemini-cli-hud-v050.png)
+
 ![Gemini CLI HUD 实际效果](docs/gemini-cli-hud-11.png)
 
-![Gemini CLI HUD 概览](docs/gemini-cli-hud-12.png)
-
 ```
-─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
- gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
- main* ↑2 │ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K ⚡20K $0.021 │ Mem: 77% │ Pro xulei │ Session: 12m
+────────────────────────────────────── gemini-cli-hud ──────────────────────────────────────
+ gemini-3-flash Pro xulei0331 │ git:(main) │ 4 GEMINI.md 2 ext │ Ctx: ██░░░░░░ 3% (28K/1.0M) 20 tok/s
+ ↑84K ↓1K $0.013 │ Mem: 80% (19.1/24.0GB) │ Session: 5m3s
 ```
 
 ## 核心特性
@@ -32,17 +32,16 @@
 - **实时上下文用量：** 进度条显示 Context Window 消耗百分比。
 - **Token 吞吐速率：** 显示每秒 token 处理速率（如 `1.2K tok/s`）。
 - **费用估算：** 实时 API 费用追踪，分别显示输入/输出 token：`↑420K ↓52K $0.021`。
-- **认证方式显示：** 在模型名旁显示 `OAuth` 或 `API`。
+- **订阅与账号显示：** 在模型名旁显示订阅等级（Pro/Free/Ultra）和账号名，无 API 时回退到 OAuth/API。
 - **活动模型追踪：** 显示当前模型（如 `gemini-3-flash`）。
 - **工具观测：** Claude-HUD 风格的工具展示：`✓ Read ×8 | ✓ Bash ×4`。
 - **GEMINI.md 计数：** 显示已加载的 GEMINI.md 文件数（项目 + 全局 + 扩展）。
 - **扩展计数：** 显示已安装的 Gemini CLI 扩展数量。
 - **活跃 Skill 追踪：** 显示当前激活的 skill/extension。
 - **会话计时：** 从会话开始的已用时间。
-- **Git 集成：** 显示当前分支、未提交更改标记、以及与上游的领先/落后提交数。
+- **Git 集成：** oh-my-zsh 风格分支显示：`git:(main*)` + 领先/落后提交数。
 - **系统内存监控：** 实时内存使用情况（macOS `vm_stat` + 跨平台回退）。
 - **Token 缓存明细：** 单独显示缓存内容 token：`↑420K ↓52K ⚡20K $0.021`。
-- **账号与配额显示：** 通过 Google API 显示订阅等级和当前账号。
 - **多会话支持：** 每个 Gemini CLI 实例拥有独立的 HUD daemon，互不干扰。
 - **会话退出清理：** 退出时自动重置终端滚动区域，无需手动 `reset`。
 - **可配置布局：** 通过 `~/.gemini/hud.json` 选择显示哪些模块、调整顺序、开关单个元素。
@@ -85,8 +84,8 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 | 预设 | 包含模块 | 说明 |
 |------|---------|------|
-| `full`（默认） | model, meta, skill, context, git, tools, cost, memory, quota, session | 全部可见 |
-| `essential` | model, context, git, tools, session | 核心信息 + git，隐藏 meta/skill/cost |
+| `full`（默认） | model, git, meta, skill, context, tools, cost, memory, session | 全部可见 |
+| `essential` | model, git, context, tools, session | 核心信息 + git，隐藏 meta/skill/cost |
 | `minimal` | model, context, session | 最精简 |
 
 ```jsonc
@@ -100,7 +99,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 ```json
 {
   "preset": "full",
-  "modules": ["model", "meta", "skill", "context", "git", "tools", "cost", "memory", "quota", "session"],
+  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -112,8 +111,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
     "showSession": true,
     "showMeta": true,
     "showGit": true,
-    "showMemory": true,
-    "showQuota": true
+    "showMemory": true
   },
   "language": "en"
 }
@@ -130,7 +128,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
+ gemini-3-flash Pro user │ git:(main) │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
  ✓ Read ×8 | ✓ Bash ×4 │ Session: 12m
 ```
 
@@ -138,14 +136,14 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ```jsonc
 {
-  "modules": ["model", "context", "tools", "cost", "session"],
+  "modules": ["model", "git", "context", "tools", "cost", "session"],
   "display": { "showMeta": false, "showSkill": false }
 }
 ```
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M)
+ gemini-3-flash Pro user │ git:(main) │ Ctx: ████░░ 42% (420K/1.0M)
  ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
@@ -157,7 +155,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
+ gemini-3-flash Pro user │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
 ```
 
 **极简 + 费用 — 精简但关注成本：**
@@ -172,22 +170,21 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
+ gemini-3-flash Pro user │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
 ### 可用模块
 
 | 模块 | 显示内容 |
 |------|---------|
-| `model` | 模型名称 + 认证方式（OAuth/API） |
+| `model` | 模型名称 + 订阅等级 + 账号（如 `gemini-3-flash Pro xulei0331`） |
 | `meta` | GEMINI.md 文件数 + 扩展数 |
 | `skill` | 当前激活的 skill/扩展 |
 | `context` | 上下文窗口进度条 + 百分比 + token 速率 |
 | `tools` | 工具调用计数：`✓ Read ×8 \| ✓ Bash ×4` |
 | `cost` | 输入/输出 token 数 + 预估费用：`↑420K ↓52K $0.021` |
-| `git` | Git 分支、未提交状态、领先/落后：`main* ↑3 ↓1` |
-| `memory` | 系统内存：`Mem: 77% (12.3/16.0GB)` |
-| `quota` | 订阅等级 + 账号：`Pro xulei0331` |
+| `git` | oh-my-zsh 风格分支显示：`git:(main*)` + `↑3 ↓1` |
+| `memory` | 系统内存：`Mem: 80% (19.1/24.0GB)` |
 | `session` | 会话已用时间 |
 
 ### 显示开关
@@ -197,7 +194,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | 开关 | 默认值 | 控制内容 |
 |------|--------|---------|
 | `showModel` | `true` | 模型名称 |
-| `showAuth` | `true` | 模型旁的 OAuth/API 标识 |
+| `showAuth` | `true` | 订阅等级 + 账号（无 API 时回退到 OAuth/API） |
 | `showContext` | `true` | 上下文进度条 |
 | `showTokenRate` | `true` | Token 吞吐速率 (tok/s) |
 | `showTools` | `true` | 工具调用统计 |
@@ -207,7 +204,6 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | `showMeta` | `true` | GEMINI.md 和扩展计数 |
 | `showGit` | `true` | Git 分支和状态 |
 | `showMemory` | `true` | 系统内存使用 |
-| `showQuota` | `true` | 账号等级与配额信息 |
 
 ### 语言
 

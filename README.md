@@ -16,14 +16,14 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 
 ## Screenshots
 
+![Gemini CLI HUD v0.5.0](docs/gemini-cli-hud-v050.png)
+
 ![Gemini CLI HUD in action](docs/gemini-cli-hud-11.png)
 
-![Gemini CLI HUD overview](docs/gemini-cli-hud-12.png)
-
 ```
-─────────────────────────────────── gemini-cli-hud ───────────────────────────────────
- gemini-3-flash OAuth │ 4 GEMINI.md 2 ext │ ⚡brainstorm │ Ctx: ████████░░░░ 42% (420K/1.0M) 1.2K tok/s
- main* ↑2 │ ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K ⚡20K $0.021 │ Mem: 77% │ Pro xulei │ Session: 12m
+────────────────────────────────────── gemini-cli-hud ──────────────────────────────────────
+ gemini-3-flash Pro xulei0331 │ git:(main) │ 4 GEMINI.md 2 ext │ Ctx: ██░░░░░░ 3% (28K/1.0M) 20 tok/s
+ ↑84K ↓1K $0.013 │ Mem: 80% (19.1/24.0GB) │ Session: 5m3s
 ```
 
 ## Features
@@ -32,17 +32,16 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 - **Real-Time Context Usage:** Progress bar showing context window consumption percentage.
 - **Token Throughput:** Displays tokens/sec rate (e.g., `1.2K tok/s`) next to the context bar.
 - **Cost Estimation:** Real-time API cost tracking with input/output breakdown: `↑420K ↓52K $0.021`.
-- **Auth Type Display:** Shows `OAuth` or `API` next to the model name.
+- **Subscription & Account Display:** Shows subscription tier (Pro/Free/Ultra) and account name next to the model, with OAuth/API fallback.
 - **Active Model Tracking:** Displays the current model (e.g., `gemini-3-flash`).
 - **Tool Observability:** Claude-HUD style tool display: `✓ Read ×8 | ✓ Bash ×4`.
 - **GEMINI.md Counter:** Shows how many GEMINI.md files are loaded (project + global + extensions).
 - **Extensions Counter:** Shows installed Gemini CLI extensions count.
 - **Active Skill Tracking:** Displays the currently activated skill/extension.
 - **Session Timer:** Elapsed time since session start.
-- **Git Integration:** Displays current branch, dirty state indicator, and ahead/behind upstream counts.
+- **Git Integration:** oh-my-zsh style branch display: `git:(main*)` with ahead/behind upstream counts.
 - **System Memory Monitor:** Real-time memory usage (macOS `vm_stat` with cross-platform fallback).
 - **Token Cache Breakdown:** Shows cached content tokens separately: `↑420K ↓52K ⚡20K $0.021`.
-- **Account & Quota Display:** Shows subscription tier (Free/Pro/Ultra) and active account via Google API.
 - **Multi-Session Support:** Each Gemini CLI instance gets its own isolated HUD daemon.
 - **Session Cleanup:** Automatically resets terminal scroll region on session exit.
 - **Configurable Layout:** Choose which modules to display, their order, and toggle individual elements via `~/.gemini/hud.json`.
@@ -85,8 +84,8 @@ Three built-in presets for quick setup:
 
 | Preset | Modules | Description |
 |--------|---------|-------------|
-| `full` (default) | model, meta, skill, context, git, tools, cost, memory, quota, session | Everything visible |
-| `essential` | model, context, git, tools, session | Core info + git, no meta/skill/cost |
+| `full` (default) | model, git, meta, skill, context, tools, cost, memory, session | Everything visible |
+| `essential` | model, git, context, tools, session | Core info + git, no meta/skill/cost |
 | `minimal` | model, context, session | Bare minimum |
 
 ```jsonc
@@ -100,7 +99,7 @@ Three built-in presets for quick setup:
 ```json
 {
   "preset": "full",
-  "modules": ["model", "meta", "skill", "context", "git", "tools", "cost", "memory", "quota", "session"],
+  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -112,8 +111,7 @@ Three built-in presets for quick setup:
     "showSession": true,
     "showMeta": true,
     "showGit": true,
-    "showMemory": true,
-    "showQuota": true
+    "showMemory": true
   },
   "language": "en"
 }
@@ -130,7 +128,7 @@ Three built-in presets for quick setup:
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
+ gemini-3-flash Pro user │ git:(main) │ Ctx: ████░░ 42% (420K/1.0M) 1.2K tok/s
  ✓ Read ×8 | ✓ Bash ×4 │ Session: 12m
 ```
 
@@ -138,14 +136,14 @@ Three built-in presets for quick setup:
 
 ```jsonc
 {
-  "modules": ["model", "context", "tools", "cost", "session"],
+  "modules": ["model", "git", "context", "tools", "cost", "session"],
   "display": { "showMeta": false, "showSkill": false }
 }
 ```
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash OAuth │ Ctx: ████░░ 42% (420K/1.0M)
+ gemini-3-flash Pro user │ git:(main) │ Ctx: ████░░ 42% (420K/1.0M)
  ✓ Read ×8 | ✓ Bash ×4 │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
@@ -157,7 +155,7 @@ Three built-in presets for quick setup:
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
+ gemini-3-flash Pro user │ Ctx: ████░░ 42% (420K/1.0M) │ Session: 12m
 ```
 
 **Minimal + cost — compact but cost-aware:**
@@ -172,22 +170,21 @@ Three built-in presets for quick setup:
 
 ```
 ─── gemini-cli-hud ───
- gemini-3-flash │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
+ gemini-3-flash Pro user │ Ctx: ████░░ 42% (420K/1.0M) │ ↑420K ↓52K $0.021 │ Session: 12m
 ```
 
 ### Available Modules
 
 | Module | What it shows |
 |--------|---------------|
-| `model` | Model name + auth type (OAuth/API) |
+| `model` | Model name + subscription tier + account (e.g., `gemini-3-flash Pro xulei0331`) |
 | `meta` | GEMINI.md file count + extensions count |
 | `skill` | Currently active skill/extension |
 | `context` | Context window progress bar + percentage + token rate |
 | `tools` | Tool call counts: `✓ Read ×8 \| ✓ Bash ×4` |
 | `cost` | Input/output tokens + estimated cost: `↑420K ↓52K $0.021` |
-| `git` | Git branch, dirty state, ahead/behind: `main* ↑3 ↓1` |
-| `memory` | System memory: `Mem: 77% (12.3/16.0GB)` |
-| `quota` | Subscription tier + account: `Pro xulei0331` |
+| `git` | Git branch in oh-my-zsh style: `git:(main*)` with `↑3 ↓1` |
+| `memory` | System memory: `Mem: 80% (19.1/24.0GB)` |
 | `session` | Elapsed time since session start |
 
 ### Display Flags
@@ -197,7 +194,7 @@ Fine-grained control over sub-elements within modules:
 | Flag | Default | Controls |
 |------|---------|----------|
 | `showModel` | `true` | Model name display |
-| `showAuth` | `true` | OAuth/API badge next to model |
+| `showAuth` | `true` | Subscription tier + account (falls back to OAuth/API) |
 | `showContext` | `true` | Context progress bar |
 | `showTokenRate` | `true` | Token throughput (tok/s) |
 | `showTools` | `true` | Tool call statistics |
@@ -207,7 +204,6 @@ Fine-grained control over sub-elements within modules:
 | `showMeta` | `true` | GEMINI.md & extensions count |
 | `showGit` | `true` | Git branch and status |
 | `showMemory` | `true` | System memory usage |
-| `showQuota` | `true` | Account tier and quota info |
 
 ### Language
 
