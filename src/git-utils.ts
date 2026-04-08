@@ -18,7 +18,7 @@ export interface GitInfo {
 
 // ─── Git status detection ───────────────────────────────────────────────────
 
-const EXEC_OPTS = { timeout: 2000, stdio: ['pipe', 'pipe', 'pipe'] as const };
+const EXEC_OPTS = { timeout: 2000, stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'] };
 
 export function parseGitStatus(cwd: string): GitInfo | null {
   try {
