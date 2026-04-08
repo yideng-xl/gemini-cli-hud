@@ -44,7 +44,7 @@ describe('loadConfig', () => {
             preset: 'essential',
         }));
         const config = loadConfig();
-        expect(config.modules).toEqual(['model', 'context', 'git', 'tools', 'session']);
+        expect(config.modules).toEqual(['model', 'git', 'context', 'tools', 'session']);
         expect(config.display.showMeta).toBe(false);
         expect(config.display.showCost).toBe(false);
         expect(config.display.showTools).toBe(true);
@@ -146,7 +146,7 @@ describe('loadConfig', () => {
             const config = loadConfig();
             expect(config.modules).toEqual(['model', 'quota']);
         });
-        it('full preset includes all 3 new modules', () => {
+        it('full preset includes git and memory modules', () => {
             vi.mocked(fs.existsSync).mockReturnValue(true);
             vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
                 preset: 'full',
@@ -154,7 +154,7 @@ describe('loadConfig', () => {
             const config = loadConfig();
             expect(config.modules).toContain('git');
             expect(config.modules).toContain('memory');
-            expect(config.modules).toContain('quota');
+            // quota module kept as valid but not in default presets (tier/account merged into model)
         });
         it('showGit, showMemory, showQuota exist as boolean flags', () => {
             vi.mocked(fs.existsSync).mockReturnValue(true);
