@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 // ─── Presets ────────────────────────────────────────────────────────────────
 const PRESET_MODULES = {
-    full: ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'quota', 'session'],
+    full: ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'session'],
     essential: ['model', 'git', 'context', 'tools', 'session'],
     minimal: ['model', 'context', 'session'],
 };

@@ -123,10 +123,16 @@ function buildHUDBar(): string[] {
       case 'model': {
         let modelSeg = `\x1b[1;32m${short}\x1b[0m`;
         if (config.display.showAuth) {
-          // Prefer subscription tier from quota API; fall back to OAuth/API detection
+          // Prefer subscription tier + account from quota API; fall back to OAuth/API detection
           if (quotaState?.tier && quotaState.tier !== 'unknown') {
             const tierColor = quotaState.tier === 'Free' ? '\x1b[33m' : '\x1b[36m';
+            const username = quotaState.account?.includes('@')
+              ? quotaState.account.split('@')[0]
+              : quotaState.account || '';
             modelSeg += ` ${tierColor}${quotaState.tier}\x1b[0m`;
+            if (username) {
+              modelSeg += ` \x1b[90m${username}\x1b[0m`;
+            }
           } else {
             const authType = detectAuthType();
             const authLabel = authType === 'OAuth' ? t.authOAuth : t.authAPI;
