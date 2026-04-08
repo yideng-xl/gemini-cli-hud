@@ -141,6 +141,7 @@ export interface HUDState {
   lastModelTokens: number;     // token count at last AfterModel
   totalInputTokens: number;    // cumulative input tokens across all requests
   totalOutputTokens: number;   // cumulative output tokens across all requests
+  totalCacheTokens: number;    // cumulative cached content tokens across all requests
   estimatedCost: number;       // cumulative estimated cost in USD
 }
 
@@ -158,6 +159,7 @@ export function createInitialState(): HUDState {
     lastModelTokens: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
+    totalCacheTokens: 0,
     estimatedCost: 0,
   };
 }
@@ -274,6 +276,7 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
       next.lastModelTokens  = 0;
       next.totalInputTokens = 0;
       next.totalOutputTokens = 0;
+      next.totalCacheTokens = 0;
       next.estimatedCost    = 0;
       break;
 
@@ -309,6 +312,11 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
         }
         next.lastModelTime = now;
         next.lastModelTokens = newUsed;
+      }
+
+      const cacheTokens = usage?.['cachedContentTokenCount'] ?? 0;
+      if (cacheTokens > 0) {
+        next.totalCacheTokens += cacheTokens;
       }
 
       // Accumulate cost per request

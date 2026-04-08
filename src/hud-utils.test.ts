@@ -410,6 +410,42 @@ describe('processEvent cost tracking', () => {
   });
 });
 
+// ─── processEvent cache token tracking ──────────────────────────────────────
+
+describe('processEvent cache token tracking', () => {
+  it('tracks cachedContentTokenCount from usageMetadata', () => {
+    let s = createInitialState();
+    s = processEvent(s, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 50000, candidatesTokenCount: 5000, cachedContentTokenCount: 10000 } },
+    });
+    expect(s.totalCacheTokens).toBe(10000);
+  });
+
+  it('accumulates cache tokens across multiple AfterModel events', () => {
+    let s = createInitialState();
+    s = processEvent(s, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 50000, candidatesTokenCount: 5000, cachedContentTokenCount: 10000 } },
+    });
+    s = processEvent(s, {
+      hook_event_name: 'AfterModel',
+      llm_request: { model: 'gemini-3-flash' },
+      llm_response: { usageMetadata: { promptTokenCount: 80000, candidatesTokenCount: 8000, cachedContentTokenCount: 15000 } },
+    });
+    expect(s.totalCacheTokens).toBe(25000);
+  });
+
+  it('resets cache tokens to 0 on SessionStart', () => {
+    let s = createInitialState();
+    s.totalCacheTokens = 20000;
+    s = processEvent(s, { hook_event_name: 'SessionStart' });
+    expect(s.totalCacheTokens).toBe(0);
+  });
+});
+
 // ─── detectAuthType ─────────────────────────────────────────────────────────
 
 describe('detectAuthType', () => {
