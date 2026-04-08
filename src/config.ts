@@ -17,7 +17,10 @@ export type ModuleName =
   | 'context'
   | 'tools'
   | 'cost'
-  | 'session';
+  | 'session'
+  | 'git'
+  | 'memory'
+  | 'quota';
 
 export type Preset = 'full' | 'essential' | 'minimal';
 
@@ -31,6 +34,9 @@ export interface HudDisplay {
   showSkill: boolean;
   showSession: boolean;
   showMeta: boolean;
+  showGit: boolean;
+  showMemory: boolean;
+  showQuota: boolean;
 }
 
 export interface HudConfig {
@@ -43,8 +49,8 @@ export interface HudConfig {
 // ─── Presets ────────────────────────────────────────────────────────────────
 
 const PRESET_MODULES: Record<Preset, ModuleName[]> = {
-  full:      ['model', 'meta', 'skill', 'context', 'tools', 'cost', 'session'],
-  essential: ['model', 'context', 'tools', 'session'],
+  full:      ['model', 'meta', 'skill', 'context', 'git', 'tools', 'cost', 'memory', 'quota', 'session'],
+  essential: ['model', 'context', 'git', 'tools', 'session'],
   minimal:   ['model', 'context', 'session'],
 };
 
@@ -59,6 +65,9 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showSkill: true,
     showSession: true,
     showMeta: true,
+    showGit: true,
+    showMemory: true,
+    showQuota: true,
   },
   essential: {
     showModel: true,
@@ -70,6 +79,9 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showSkill: false,
     showSession: true,
     showMeta: false,
+    showGit: true,
+    showMemory: false,
+    showQuota: false,
   },
   minimal: {
     showModel: true,
@@ -81,6 +93,9 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showSkill: false,
     showSession: true,
     showMeta: false,
+    showGit: false,
+    showMemory: false,
+    showQuota: false,
   },
 };
 
@@ -96,7 +111,7 @@ export const DEFAULT_CONFIG: HudConfig = {
 // ─── Validation helpers ─────────────────────────────────────────────────────
 
 const VALID_MODULES: Set<string> = new Set([
-  'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session',
+  'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota',
 ]);
 
 const VALID_PRESETS: Set<string> = new Set(['full', 'essential', 'minimal']);
