@@ -123,10 +123,16 @@ function buildHUDBar(): string[] {
       case 'model': {
         let modelSeg = `\x1b[1;32m${short}\x1b[0m`;
         if (config.display.showAuth) {
-          const authType = detectAuthType();
-          const authLabel = authType === 'OAuth' ? t.authOAuth : t.authAPI;
-          const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
-          modelSeg += ` ${authColor}${authLabel}\x1b[0m`;
+          // Prefer subscription tier from quota API; fall back to OAuth/API detection
+          if (quotaState?.tier && quotaState.tier !== 'unknown') {
+            const tierColor = quotaState.tier === 'Free' ? '\x1b[33m' : '\x1b[36m';
+            modelSeg += ` ${tierColor}${quotaState.tier}\x1b[0m`;
+          } else {
+            const authType = detectAuthType();
+            const authLabel = authType === 'OAuth' ? t.authOAuth : t.authAPI;
+            const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
+            modelSeg += ` ${authColor}${authLabel}\x1b[0m`;
+          }
         }
         modules.push({ ansi: modelSeg, width: visibleLen(modelSeg) });
         break;

@@ -158,7 +158,7 @@ export async function refreshAccessToken(creds) {
     });
 }
 // ─── Quota fetching ─────────────────────────────────────────────────────────
-const CODE_ASSIST_URL = 'https://client-side-ai.google.com/v1/com.google.aia:loadCodeAssist';
+const CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist';
 export async function fetchQuota(accessToken) {
     const parsed = new URL(CODE_ASSIST_URL);
     const agent = await getProxyAgent(parsed.hostname);
@@ -183,20 +183,18 @@ export async function fetchQuota(accessToken) {
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
-                    // Parse tier
+                    // Parse tier — actual response has paidTier.id and currentTier.id
                     let tier = 'Free';
-                    if (json.subscriptionTier?.paidTier) {
-                        tier = json.subscriptionTier.paidTier;
-                    }
-                    else if (json.currentTier) {
-                        tier = json.currentTier;
-                    }
-                    // Normalise tier name
-                    if (tier.toLowerCase().includes('pro'))
+                    const paidId = json.paidTier?.id ?? json.paidTier?.name ?? '';
+                    const currentId = json.currentTier?.id ?? json.currentTier?.name ?? '';
+                    const tierStr = (paidId || currentId).toLowerCase();
+                    if (tierStr.includes('pro'))
                         tier = 'Pro';
-                    else if (tier.toLowerCase().includes('ultra'))
+                    else if (tierStr.includes('ultra') || tierStr.includes('max'))
                         tier = 'Ultra';
-                    else if (tier.toLowerCase().includes('free') || tier === 'FREE_TIER')
+                    else if (tierStr.includes('standard'))
+                        tier = 'Pro'; // standard-tier = paid
+                    else if (tierStr.includes('free'))
                         tier = 'Free';
                     // Parse account
                     const account = readActiveAccount() ?? 'unknown';

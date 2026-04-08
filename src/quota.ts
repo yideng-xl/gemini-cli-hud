@@ -314,15 +314,15 @@ async function _doFetch(): Promise<QuotaInfo | null> {
 // ─── Formatting ─────────────────────────────────────────────────────────────
 
 export function formatQuotaModule(info: QuotaInfo): { ansi: string; width: number } {
-  const tierColor = info.tier === 'Free' ? '\x1b[33m' : '\x1b[36m';
-  const reset = '\x1b[0m';
   const dim = '\x1b[90m';
+  const reset = '\x1b[0m';
 
+  // Tier is now shown in the model module; quota module shows account only
   const username = info.account.includes('@')
     ? info.account.split('@')[0]
     : info.account;
 
-  const ansi = `${tierColor}${info.tier}${reset} ${dim}${username}${reset}`;
+  const ansi = `${dim}${username}${reset}`;
   return { ansi, width: visibleLen(ansi) };
 }
 

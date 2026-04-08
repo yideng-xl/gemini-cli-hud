@@ -20,42 +20,41 @@ describe('parseGitStatus', () => {
 });
 // ─── formatGitModule ────────────────────────────────────────────────────────
 describe('formatGitModule', () => {
-    it('formats a clean branch with no ahead/behind', () => {
+    it('formats clean branch in git:(branch) style', () => {
         const info = { branch: 'main', dirty: false, ahead: 0, behind: 0 };
         const mod = formatGitModule(info);
-        expect(mod.ansi).toContain('\x1b[34m'); // blue branch
+        expect(mod.ansi).toContain('git:(');
         expect(mod.ansi).toContain('main');
+        expect(mod.ansi).toContain(')');
         expect(mod.ansi).not.toContain('*');
-        expect(mod.ansi).not.toContain('↑');
-        expect(mod.ansi).not.toContain('↓');
-        expect(mod.width).toBe(4); // "main"
+        expect(mod.width).toBe('git:(main)'.length);
     });
-    it('shows dirty indicator when dirty', () => {
+    it('shows dirty indicator inside parentheses', () => {
         const info = { branch: 'main', dirty: true, ahead: 0, behind: 0 };
         const mod = formatGitModule(info);
-        expect(mod.ansi).toContain('\x1b[33m*\x1b[0m'); // yellow asterisk
-        expect(mod.width).toBe(5); // "main*"
+        expect(mod.ansi).toContain('main*');
+        expect(mod.width).toBe('git:(main*)'.length);
     });
-    it('shows ahead count', () => {
+    it('shows ahead count after parentheses', () => {
         const info = { branch: 'feat', dirty: false, ahead: 3, behind: 0 };
         const mod = formatGitModule(info);
-        expect(mod.ansi).toContain('\x1b[32m↑3\x1b[0m'); // green up arrow
-        expect(mod.width).toBe('feat ↑3'.length);
+        expect(mod.ansi).toContain('git:(');
+        expect(mod.ansi).toContain('↑3');
+        expect(mod.width).toBe('git:(feat) ↑3'.length);
     });
     it('shows behind count', () => {
         const info = { branch: 'feat', dirty: false, ahead: 0, behind: 2 };
         const mod = formatGitModule(info);
-        expect(mod.ansi).toContain('\x1b[31m↓2\x1b[0m'); // red down arrow
-        expect(mod.width).toBe('feat ↓2'.length);
+        expect(mod.ansi).toContain('↓2');
+        expect(mod.width).toBe('git:(feat) ↓2'.length);
     });
     it('shows all indicators together', () => {
         const info = { branch: 'dev', dirty: true, ahead: 1, behind: 5 };
         const mod = formatGitModule(info);
-        expect(mod.ansi).toContain('dev');
-        expect(mod.ansi).toContain('*');
+        expect(mod.ansi).toContain('git:(');
+        expect(mod.ansi).toContain('dev*');
         expect(mod.ansi).toContain('↑1');
         expect(mod.ansi).toContain('↓5');
-        // "dev* ↑1 ↓5"
-        expect(mod.width).toBe('dev* ↑1 ↓5'.length);
+        expect(mod.width).toBe('git:(dev*) ↑1 ↓5'.length);
     });
 });

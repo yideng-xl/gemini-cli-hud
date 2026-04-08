@@ -77,28 +77,16 @@ describe('formatQuotaModule', () => {
     _resetCache();
   });
 
-  it('formats Free tier in yellow with email username', () => {
+  it('shows username only (tier moved to model module)', () => {
     const info: QuotaInfo = {
       tier: 'Free',
       account: 'user@example.com',
       models: [],
     };
     const mod = formatQuotaModule(info);
-    expect(mod.ansi).toContain('\x1b[33m'); // yellow for Free
-    expect(mod.ansi).toContain('Free');
     expect(mod.ansi).toContain('user');
     expect(mod.ansi).not.toContain('@example.com');
-  });
-
-  it('formats Pro tier in cyan', () => {
-    const info: QuotaInfo = {
-      tier: 'Pro',
-      account: 'test@gmail.com',
-      models: [],
-    };
-    const mod = formatQuotaModule(info);
-    expect(mod.ansi).toContain('\x1b[36m'); // cyan for non-Free
-    expect(mod.ansi).toContain('Pro');
+    expect(mod.ansi).not.toContain('Free'); // tier not shown here
   });
 
   it('width matches visible length', () => {
