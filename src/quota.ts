@@ -73,6 +73,7 @@ export function readActiveAccount(filePath: string = DEFAULT_ACCOUNTS_PATH): str
 // ─── Token refresh ──────────────────────────────────────────────────────────
 
 const CLIENT_ID = '539249604372-fir0ep2rrfq8skao3job0pfrqhb5ghlg.apps.googleusercontent.com';
+// Gemini CLI is a public/installed-app OAuth client; no secret is required.
 const CLIENT_SECRET = '';
 
 export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCredentials | null> {
@@ -95,6 +96,10 @@ export function refreshAccessToken(creds: OAuthCredentials): Promise<OAuthCreden
         timeout: 5000,
       },
       (res) => {
+        if (res.statusCode && res.statusCode >= 400) {
+          resolve(null);
+          return;
+        }
         let data = '';
         res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
         res.on('end', () => {
@@ -146,6 +151,10 @@ export function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
         timeout: 8000,
       },
       (res) => {
+        if (res.statusCode && res.statusCode >= 400) {
+          resolve(null);
+          return;
+        }
         let data = '';
         res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
         res.on('end', () => {
@@ -205,32 +214,33 @@ export function fetchQuota(accessToken: string): Promise<QuotaInfo | null> {
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 let cachedQuota: QuotaInfo | null = null;
 let lastFetchTime = 0;
+let _inflightFetch: Promise<QuotaInfo | null> | null = null;
 
-export async function getQuotaWithCache(): Promise<QuotaInfo | null> {
+export function getQuotaWithCache(): Promise<QuotaInfo | null> {
   const now = Date.now();
   if (cachedQuota && now - lastFetchTime < CACHE_TTL) {
-    return cachedQuota;
+    return Promise.resolve(cachedQuota);
   }
+  if (_inflightFetch) return _inflightFetch;
+  _inflightFetch = _doFetch().finally(() => { _inflightFetch = null; });
+  return _inflightFetch;
+}
 
-  try {
-    let creds = readOAuthToken();
+async function _doFetch(): Promise<QuotaInfo | null> {
+  let creds = readOAuthToken();
+  if (!creds) return cachedQuota;
+
+  if (isTokenExpired(creds.expiry_date)) {
+    creds = await refreshAccessToken(creds);
     if (!creds) return cachedQuota;
-
-    if (isTokenExpired(creds.expiry_date)) {
-      const refreshed = await refreshAccessToken(creds);
-      if (!refreshed) return cachedQuota;
-      creds = refreshed;
-    }
-
-    const info = await fetchQuota(creds.access_token);
-    if (info) {
-      cachedQuota = info;
-      lastFetchTime = now;
-    }
-    return cachedQuota;
-  } catch {
-    return cachedQuota;
   }
+
+  const info = await fetchQuota(creds.access_token);
+  if (info) {
+    cachedQuota = info;
+    lastFetchTime = Date.now();
+  }
+  return cachedQuota;
 }
 
 // ─── Formatting ─────────────────────────────────────────────────────────────
@@ -253,4 +263,5 @@ export function formatQuotaModule(info: QuotaInfo): { ansi: string; width: numbe
 export function _resetCache(): void {
   cachedQuota = null;
   lastFetchTime = 0;
+  _inflightFetch = null;
 }
