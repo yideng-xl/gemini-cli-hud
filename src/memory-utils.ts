@@ -1,3 +1,9 @@
+/**
+ * Gemini CLI HUD — System memory monitoring
+ *
+ * Reads system memory usage via macOS vm_stat with cross-platform fallback.
+ */
+
 import { execSync } from 'child_process';
 import os from 'os';
 import { visibleLen } from './hud-utils.js';
@@ -13,7 +19,7 @@ export function getMemoryUsage(): MemoryInfo | null {
     const totalBytes = os.totalmem();
 
     if (process.platform === 'darwin') {
-      const vmstat = execSync('vm_stat', { encoding: 'utf-8' });
+      const vmstat = execSync('vm_stat', { encoding: 'utf-8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe'] });
 
       // Parse page size (e.g. "Mach Virtual Memory Statistics: (page size of 16384 bytes)")
       const pageSizeMatch = vmstat.match(/page size of (\d+) bytes/);
@@ -29,6 +35,9 @@ export function getMemoryUsage(): MemoryInfo | null {
       const inactive = parse('Pages inactive');
       const speculative = parse('Pages speculative');
 
+      // "used" = total minus reclaimable pages (free + inactive + speculative).
+      // Wired pages are implicitly counted. Approximates memory pressure
+      // rather than matching Activity Monitor's active+wired+compressed.
       const freeBytes = (free + inactive + speculative) * pageSize;
       const usedBytes = totalBytes - freeBytes;
 
