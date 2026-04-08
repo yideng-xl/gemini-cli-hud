@@ -49,8 +49,8 @@ export interface HudConfig {
 // ─── Presets ────────────────────────────────────────────────────────────────
 
 const PRESET_MODULES: Record<Preset, ModuleName[]> = {
-  full:      ['model', 'meta', 'skill', 'context', 'git', 'tools', 'cost', 'memory', 'quota', 'session'],
-  essential: ['model', 'context', 'git', 'tools', 'session'],
+  full:      ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'quota', 'session'],
+  essential: ['model', 'git', 'context', 'tools', 'session'],
   minimal:   ['model', 'context', 'session'],
 };
 

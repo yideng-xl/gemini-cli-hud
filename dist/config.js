@@ -8,8 +8,8 @@ import fs from 'fs';
 import path from 'path';
 // ─── Presets ────────────────────────────────────────────────────────────────
 const PRESET_MODULES = {
-    full: ['model', 'meta', 'skill', 'context', 'git', 'tools', 'cost', 'memory', 'quota', 'session'],
-    essential: ['model', 'context', 'git', 'tools', 'session'],
+    full: ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'quota', 'session'],
+    essential: ['model', 'git', 'context', 'tools', 'session'],
     minimal: ['model', 'context', 'session'],
 };
 const PRESET_DISPLAY = {
