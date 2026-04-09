@@ -14,6 +14,7 @@ import { loadConfig } from './config.js';
 import { parseGitStatus, formatGitModule } from './git-utils.js';
 import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
 import { getQuotaWithCache, formatQuotaModule } from './quota.js';
+import { formatTaskModule } from './task-utils.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
@@ -60,6 +61,7 @@ const I18N = {
         authAPI: 'API',
         mem: 'Mem:',
         tokPerSec: (r) => `${r} tok/s`,
+        tasks: 'Tasks:',
     },
     zh: {
         waiting: '等待会话...',
@@ -70,6 +72,7 @@ const I18N = {
         authAPI: 'API',
         mem: '内存:',
         tokPerSec: (r) => `${r} 词元/秒`,
+        tasks: '任务:',
     },
 };
 // ─── Rendering ──────────────────────────────────────────────────────────────
@@ -194,6 +197,14 @@ function buildHUDBar() {
                 if (config.display.showQuota && quotaState) {
                     const quotaMod = formatQuotaModule(quotaState);
                     modules.push(quotaMod);
+                }
+                break;
+            }
+            case 'task': {
+                if (config.display.showTask && state.taskTotal > 0) {
+                    const taskMod = formatTaskModule({ total: state.taskTotal, completed: state.taskCompleted, items: [], source: state.taskSource, lastUpdated: state.lastUpdated }, config.language);
+                    if (taskMod)
+                        modules.push(taskMod);
                 }
                 break;
             }

@@ -42,6 +42,7 @@ A real-time, bottom-sticky heads-up display (HUD) for [Gemini CLI](https://githu
 - **Git Integration:** oh-my-zsh style branch display: `git:(main*)` with ahead/behind upstream counts.
 - **System Memory Monitor:** Real-time memory usage (macOS `vm_stat` with cross-platform fallback).
 - **Token Cache Breakdown:** Shows cached content tokens separately: `↑420K ↓52K ⚡20K $0.021`.
+- **Task Progress Tracking:** Detects markdown checklists (`- [x]`/`- [ ]`) and numbered steps in model responses, displaying real-time task completion: `Tasks: 2/5`.
 - **Multi-Session Support:** Each Gemini CLI instance gets its own isolated HUD daemon.
 - **Session Cleanup:** Automatically resets terminal scroll region on session exit.
 - **Configurable Layout:** Choose which modules to display, their order, and toggle individual elements via `~/.gemini/hud.json`.
@@ -84,8 +85,8 @@ Three built-in presets for quick setup:
 
 | Preset | Modules | Description |
 |--------|---------|-------------|
-| `full` (default) | model, git, meta, skill, context, tools, cost, memory, session | Everything visible |
-| `essential` | model, git, context, tools, session | Core info + git, no meta/skill/cost |
+| `full` (default) | model, git, meta, skill, context, tools, cost, memory, task, session | Everything visible |
+| `essential` | model, git, context, tools, task, session | Core info + git + tasks, no meta/skill/cost |
 | `minimal` | model, context, session | Bare minimum |
 
 ```jsonc
@@ -99,7 +100,7 @@ Three built-in presets for quick setup:
 ```json
 {
   "preset": "full",
-  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "session"],
+  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "task", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -111,7 +112,8 @@ Three built-in presets for quick setup:
     "showSession": true,
     "showMeta": true,
     "showGit": true,
-    "showMemory": true
+    "showMemory": true,
+    "showTask": true
   },
   "language": "en"
 }
@@ -185,6 +187,7 @@ Three built-in presets for quick setup:
 | `cost` | Input/output tokens + estimated cost: `↑420K ↓52K $0.021` |
 | `git` | Git branch in oh-my-zsh style: `git:(main*)` with `↑3 ↓1` |
 | `memory` | System memory: `Mem: 80% (19.1/24.0GB)` |
+| `task` | Task progress from model responses: `Tasks: 2/5` (detects `- [x]`/`- [ ]` checklists and numbered steps) |
 | `session` | Elapsed time since session start |
 
 ### Display Flags
@@ -204,6 +207,7 @@ Fine-grained control over sub-elements within modules:
 | `showMeta` | `true` | GEMINI.md & extensions count |
 | `showGit` | `true` | Git branch and status |
 | `showMemory` | `true` | System memory usage |
+| `showTask` | `true` | Task progress tracking |
 
 ### Language
 
@@ -251,8 +255,8 @@ The hook renders the HUD synchronously during each event — no background timer
 ## Roadmap
 
 1. **Native Statusline API:** If Google exposes a UI injection API for extensions, migrate to it for perfect integration.
-2. **Todo/Task Progress:** Display task completion status — pending upstream hook event support.
-3. **Zero Dependency Migration:** Remove React/Ink runtime dependency for lighter installation.
+2. ~~**Todo/Task Progress:**~~ **Done in v0.6.0** — Detects markdown checklists and numbered steps from model responses.
+3. ~~**Zero Dependency Migration:**~~ **Done in v0.6.0** — Removed React/Ink runtime dependency; zero production dependencies.
 
 ## Inspiration
 

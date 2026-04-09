@@ -32,6 +32,7 @@ import { loadConfig, type HudConfig } from './config.js';
 import { parseGitStatus, formatGitModule } from './git-utils.js';
 import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
 import { getQuotaWithCache, formatQuotaModule, type QuotaInfo } from './quota.js';
+import { formatTaskModule } from './task-utils.js';
 
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
@@ -84,6 +85,7 @@ const I18N = {
     authAPI: 'API',
     mem: 'Mem:',
     tokPerSec: (r: string) => `${r} tok/s`,
+    tasks: 'Tasks:',
   },
   zh: {
     waiting: '等待会话...',
@@ -94,6 +96,7 @@ const I18N = {
     authAPI: 'API',
     mem: '内存:',
     tokPerSec: (r: string) => `${r} 词元/秒`,
+    tasks: '任务:',
   },
 } as const;
 
@@ -223,6 +226,16 @@ function buildHUDBar(): string[] {
         if (config.display.showQuota && quotaState) {
           const quotaMod = formatQuotaModule(quotaState);
           modules.push(quotaMod);
+        }
+        break;
+      }
+      case 'task': {
+        if (config.display.showTask && state.taskTotal > 0) {
+          const taskMod = formatTaskModule(
+            { total: state.taskTotal, completed: state.taskCompleted, items: [], source: state.taskSource, lastUpdated: state.lastUpdated },
+            config.language,
+          );
+          if (taskMod) modules.push(taskMod);
         }
         break;
       }

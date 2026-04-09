@@ -52,7 +52,7 @@ describe('loadConfig', () => {
     }));
 
     const config = loadConfig();
-    expect(config.modules).toEqual(['model', 'git', 'context', 'tools', 'session']);
+    expect(config.modules).toEqual(['model', 'git', 'context', 'tools', 'task', 'session']);
     expect(config.display.showMeta).toBe(false);
     expect(config.display.showCost).toBe(false);
     expect(config.display.showTools).toBe(true);

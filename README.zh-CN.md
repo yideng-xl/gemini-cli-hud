@@ -42,6 +42,7 @@
 - **Git 集成：** oh-my-zsh 风格分支显示：`git:(main*)` + 领先/落后提交数。
 - **系统内存监控：** 实时内存使用情况（macOS `vm_stat` + 跨平台回退）。
 - **Token 缓存明细：** 单独显示缓存内容 token：`↑420K ↓52K ⚡20K $0.021`。
+- **任务进度追踪：** 自动检测模型回复中的 Markdown Checklist（`- [x]`/`- [ ]`）和编号步骤，实时显示完成进度：`任务: 2/5`。
 - **多会话支持：** 每个 Gemini CLI 实例拥有独立的 HUD daemon，互不干扰。
 - **会话退出清理：** 退出时自动重置终端滚动区域，无需手动 `reset`。
 - **可配置布局：** 通过 `~/.gemini/hud.json` 选择显示哪些模块、调整顺序、开关单个元素。
@@ -84,8 +85,8 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 
 | 预设 | 包含模块 | 说明 |
 |------|---------|------|
-| `full`（默认） | model, git, meta, skill, context, tools, cost, memory, session | 全部可见 |
-| `essential` | model, git, context, tools, session | 核心信息 + git，隐藏 meta/skill/cost |
+| `full`（默认） | model, git, meta, skill, context, tools, cost, memory, task, session | 全部可见 |
+| `essential` | model, git, context, tools, task, session | 核心信息 + git + 任务，隐藏 meta/skill/cost |
 | `minimal` | model, context, session | 最精简 |
 
 ```jsonc
@@ -99,7 +100,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 ```json
 {
   "preset": "full",
-  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "session"],
+  "modules": ["model", "git", "meta", "skill", "context", "tools", "cost", "memory", "task", "session"],
   "display": {
     "showModel": true,
     "showAuth": true,
@@ -111,7 +112,8 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
     "showSession": true,
     "showMeta": true,
     "showGit": true,
-    "showMemory": true
+    "showMemory": true,
+    "showTask": true
   },
   "language": "en"
 }
@@ -185,6 +187,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | `cost` | 输入/输出 token 数 + 预估费用：`↑420K ↓52K $0.021` |
 | `git` | oh-my-zsh 风格分支显示：`git:(main*)` + `↑3 ↓1` |
 | `memory` | 系统内存：`Mem: 80% (19.1/24.0GB)` |
+| `task` | 模型回复中的任务进度：`任务: 2/5`（检测 `- [x]`/`- [ ]` 清单和编号步骤） |
 | `session` | 会话已用时间 |
 
 ### 显示开关
@@ -204,6 +207,7 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 | `showMeta` | `true` | GEMINI.md 和扩展计数 |
 | `showGit` | `true` | Git 分支和状态 |
 | `showMemory` | `true` | 系统内存使用 |
+| `showTask` | `true` | 任务进度追踪 |
 
 ### 语言
 
@@ -251,8 +255,8 @@ Hook 在每个事件期间同步渲染 HUD — 无后台定时器、无轮询、
 ## 后续计划
 
 1. **原生 Statusline API：** 如果 Google 开放扩展 UI 注入 API，迁移到原生方案以实现完美集成。
-2. **Todo/任务进度：** 显示任务完成状态 — 等待上游 hook 事件支持。
-3. **零依赖迁移：** 移除 React/Ink 运行时依赖，实现更轻量的安装。
+2. ~~**Todo/任务进度：**~~ **已在 v0.6.0 完成** — 自动检测模型回复中的 Markdown 清单和编号步骤。
+3. ~~**零依赖迁移：**~~ **已在 v0.6.0 完成** — 移除 React/Ink 运行时依赖，零生产依赖。
 
 ## 灵感来源
 

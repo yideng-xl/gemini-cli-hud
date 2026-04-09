@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ESNext"],
-    "jsx": "react-jsx",
+    /* jsx removed — no React/Ink runtime dependency */
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

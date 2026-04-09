@@ -8,18 +8,20 @@ describe('Extension entry point', () => {
         const extension = init();
         expect(typeof extension.action).toBe('function');
     });
-    it('should return continue: true from action', async () => {
+    it('should return continue: true when no statusLine API', async () => {
         const extension = init();
-        const mockArgs = {
-            gemini: {
-                ui: {
-                    statusLine: {
-                        draw: () => { }
-                    }
-                }
-            }
-        };
-        const result = await extension.action(mockArgs);
+        const result = await extension.action({});
         expect(result).toEqual({ continue: true });
+    });
+    it('should call statusLine.draw when API is available', async () => {
+        const extension = init();
+        let drawn = '';
+        const result = await extension.action({
+            gemini: { ui: { statusLine: { draw: (s) => { drawn = s; } } } },
+            usageMetadata: { totalTokenCount: 50000 },
+        });
+        expect(result).toEqual({ continue: true });
+        expect(drawn).toContain('Context:');
+        expect(drawn).toContain('5%');
     });
 });

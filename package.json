@@ -1,6 +1,6 @@
 {
   "name": "gemini-cli-hud",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Real-time bottom-sticky HUD for Gemini CLI — model, context usage, tool calls, and more",
   "private": true,
   "type": "module",
@@ -18,20 +18,13 @@
   },
   "license": "MIT",
   "scripts": {
-    "dev": "tsx src/index.tsx",
+    "dev": "tsx src/index.ts",
     "test": "vitest",
     "build": "tsc"
   },
-  "dependencies": {
-    "ink": "^5.1.0",
-    "react": "^18.3.1",
-    "react-dom": "18.3.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.13.9",
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
-    "ink-testing-library": "^4.0.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7"

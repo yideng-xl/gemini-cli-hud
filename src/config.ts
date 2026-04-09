@@ -20,7 +20,8 @@ export type ModuleName =
   | 'session'
   | 'git'
   | 'memory'
-  | 'quota';
+  | 'quota'
+  | 'task';
 
 export type Preset = 'full' | 'essential' | 'minimal';
 
@@ -37,6 +38,7 @@ export interface HudDisplay {
   showGit: boolean;
   showMemory: boolean;
   showQuota: boolean;
+  showTask: boolean;
 }
 
 export interface HudConfig {
@@ -49,8 +51,8 @@ export interface HudConfig {
 // ─── Presets ────────────────────────────────────────────────────────────────
 
 const PRESET_MODULES: Record<Preset, ModuleName[]> = {
-  full:      ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'session'],
-  essential: ['model', 'git', 'context', 'tools', 'session'],
+  full:      ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'task', 'session'],
+  essential: ['model', 'git', 'context', 'tools', 'task', 'session'],
   minimal:   ['model', 'context', 'session'],
 };
 
@@ -68,6 +70,7 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showGit: true,
     showMemory: true,
     showQuota: true,
+    showTask: true,
   },
   essential: {
     showModel: true,
@@ -82,6 +85,7 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showGit: true,
     showMemory: false,
     showQuota: false,
+    showTask: true,
   },
   minimal: {
     showModel: true,
@@ -96,6 +100,7 @@ const PRESET_DISPLAY: Record<Preset, HudDisplay> = {
     showGit: false,
     showMemory: false,
     showQuota: false,
+    showTask: false,
   },
 };
 
@@ -111,7 +116,7 @@ export const DEFAULT_CONFIG: HudConfig = {
 // ─── Validation helpers ─────────────────────────────────────────────────────
 
 const VALID_MODULES: Set<string> = new Set([
-  'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota',
+  'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota', 'task',
 ]);
 
 const VALID_PRESETS: Set<string> = new Set(['full', 'essential', 'minimal']);

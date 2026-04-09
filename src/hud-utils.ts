@@ -6,6 +6,7 @@
 
 import fs   from 'fs';
 import path from 'path';
+import { extractTaskProgress } from './task-utils.js';
 
 // ─── Filesystem helpers ─────────────────────────────────────────────────────
 
@@ -143,6 +144,9 @@ export interface HUDState {
   totalOutputTokens: number;   // cumulative output tokens across all requests
   totalCacheTokens: number;    // cumulative cached content tokens across all requests
   estimatedCost: number;       // cumulative estimated cost in USD
+  taskTotal: number;           // total tasks detected from model response
+  taskCompleted: number;       // completed tasks detected from model response
+  taskSource: 'checklist' | 'steps' | 'tools' | 'none'; // detection source
 }
 
 export function createInitialState(): HUDState {
@@ -161,6 +165,9 @@ export function createInitialState(): HUDState {
     totalOutputTokens: 0,
     totalCacheTokens: 0,
     estimatedCost: 0,
+    taskTotal: 0,
+    taskCompleted: 0,
+    taskSource: 'none',
   };
 }
 
@@ -278,6 +285,9 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
       next.totalOutputTokens = 0;
       next.totalCacheTokens = 0;
       next.estimatedCost    = 0;
+      next.taskTotal        = 0;
+      next.taskCompleted    = 0;
+      next.taskSource       = 'none';
       break;
 
     case 'AfterModel': {
@@ -324,6 +334,24 @@ export function processEvent(state: HUDState, event: Record<string, unknown>): H
         next.totalInputTokens += inputTokens;
         next.totalOutputTokens += outputTokens;
         next.estimatedCost = estimateCost(next.model, next.totalInputTokens, next.totalOutputTokens);
+      }
+
+      // Extract task/todo progress from model response text
+      const candidates = res?.['candidates'] as Array<Record<string, unknown>> | undefined;
+      if (candidates && candidates.length > 0) {
+        const content = candidates[0]?.['content'] as Record<string, unknown> | undefined;
+        const parts = content?.['parts'] as Array<Record<string, unknown>> | undefined;
+        if (parts) {
+          const textParts = parts.map(p => (p['text'] as string) || '').join('\n');
+          if (textParts) {
+            const taskProgress = extractTaskProgress(textParts);
+            if (taskProgress) {
+              next.taskTotal = taskProgress.total;
+              next.taskCompleted = taskProgress.completed;
+              next.taskSource = taskProgress.source;
+            }
+          }
+        }
       }
       break;
     }

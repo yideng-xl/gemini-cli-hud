@@ -8,8 +8,8 @@ import fs from 'fs';
 import path from 'path';
 // ─── Presets ────────────────────────────────────────────────────────────────
 const PRESET_MODULES = {
-    full: ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'session'],
-    essential: ['model', 'git', 'context', 'tools', 'session'],
+    full: ['model', 'git', 'meta', 'skill', 'context', 'tools', 'cost', 'memory', 'task', 'session'],
+    essential: ['model', 'git', 'context', 'tools', 'task', 'session'],
     minimal: ['model', 'context', 'session'],
 };
 const PRESET_DISPLAY = {
@@ -26,6 +26,7 @@ const PRESET_DISPLAY = {
         showGit: true,
         showMemory: true,
         showQuota: true,
+        showTask: true,
     },
     essential: {
         showModel: true,
@@ -40,6 +41,7 @@ const PRESET_DISPLAY = {
         showGit: true,
         showMemory: false,
         showQuota: false,
+        showTask: true,
     },
     minimal: {
         showModel: true,
@@ -54,6 +56,7 @@ const PRESET_DISPLAY = {
         showGit: false,
         showMemory: false,
         showQuota: false,
+        showTask: false,
     },
 };
 // ─── Defaults ───────────────────────────────────────────────────────────────
@@ -65,7 +68,7 @@ export const DEFAULT_CONFIG = {
 };
 // ─── Validation helpers ─────────────────────────────────────────────────────
 const VALID_MODULES = new Set([
-    'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota',
+    'model', 'meta', 'skill', 'context', 'tools', 'cost', 'session', 'git', 'memory', 'quota', 'task',
 ]);
 const VALID_PRESETS = new Set(['full', 'essential', 'minimal']);
 function isValidModule(m) {
