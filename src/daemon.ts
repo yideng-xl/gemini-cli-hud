@@ -33,7 +33,16 @@ import { parseGitStatus, formatGitModule } from './git-utils.js';
 import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
 import { getQuotaWithCache, getLocalAccountInfo, formatQuotaModule, type QuotaInfo } from './quota.js';
 import { formatTaskModule } from './task-utils.js';
-import { recordSession, markPrompted, renderStarPrompt, shouldShowStarPrompt, type StarState } from './star-prompt.js';
+import {
+  recordSession,
+  markPrompted,
+  markQuotaHintShown,
+  renderStarPrompt,
+  renderQuotaHint,
+  shouldShowStarPrompt,
+  shouldShowQuotaHint,
+  type PromptState,
+} from './star-prompt.js';
 
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
@@ -51,7 +60,7 @@ function log(msg: string): void {
 
 let state: HUDState = createInitialState();
 let quotaState: QuotaInfo | null = null;
-let starState: StarState = { sessionCount: 0, prompted: false };
+let starState: PromptState = { sessionCount: 0, prompted: false, quotaHintShown: false };
 
 // Cached terminal size from hook (hook has access to real /dev/tty)
 const cachedTermSize = { rows: 0, cols: 0 };
@@ -128,8 +137,8 @@ function buildHUDBar(): string[] {
       case 'model': {
         let modelSeg = `\x1b[1;32m${short}\x1b[0m`;
         if (config.display.showAuth) {
-          // Prefer subscription tier + account from quota API; fall back to OAuth/API detection
-          if (quotaState?.tier && quotaState.tier !== 'unknown') {
+          if (config.quotaApi && quotaState?.tier && quotaState.tier !== 'unknown' && quotaState.tier !== 'OAuth' && quotaState.tier !== 'API') {
+            // quotaApi enabled: show precise tier from API (Pro/Free/Ultra)
             const tierColor = quotaState.tier === 'Free' ? '\x1b[33m' : '\x1b[36m';
             const username = quotaState.account?.includes('@')
               ? quotaState.account.split('@')[0]
@@ -138,7 +147,15 @@ function buildHUDBar(): string[] {
             if (username) {
               modelSeg += ` \x1b[90m${username}\x1b[0m`;
             }
+          } else if (quotaState?.account) {
+            // Local mode: show account name + [?] as tier hint
+            const username = quotaState.account.includes('@')
+              ? quotaState.account.split('@')[0]
+              : quotaState.account;
+            modelSeg += ` \x1b[90m${username}\x1b[0m`;
+            modelSeg += ` \x1b[2m[???]\x1b[0m`;
           } else {
+            // No account info at all: show auth type
             const authType = detectAuthType();
             const authLabel = authType === 'OAuth' ? t.authOAuth : t.authAPI;
             const authColor = authType === 'OAuth' ? '\x1b[36m' : '\x1b[33m';
@@ -254,14 +271,20 @@ function buildHUDBar(): string[] {
   const contentLines = packModulesIntoLines(modules, cols);
   const lines = [buildSeparator(cols), ...contentLines];
 
-  // Append star prompt if conditions are met (shown once, then never again)
+  // Append one-time prompts (star → quota hint, in priority order)
   if (shouldShowStarPrompt(starState)) {
     const starLine = renderStarPrompt(starState, config.language, cols);
     if (starLine) {
       lines.push(starLine);
-      // Mark as prompted so it only shows once
       markPrompted();
       starState.prompted = true;
+    }
+  } else if (shouldShowQuotaHint(starState, config.quotaApi)) {
+    const hintLine = renderQuotaHint(starState, config.quotaApi, config.language, cols);
+    if (hintLine) {
+      lines.push(hintLine);
+      markQuotaHintShown();
+      starState.quotaHintShown = true;
     }
   }
 

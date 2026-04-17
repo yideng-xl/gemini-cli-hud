@@ -1,9 +1,12 @@
 /**
- * Gemini CLI HUD — Star prompt
+ * Gemini CLI HUD — User prompts (star + quota API hint)
  *
- * After a user has used the HUD for a few sessions, gently remind them
- * to star the GitHub repo. The prompt is shown only once and persisted
- * to ~/.gemini/hud-star.json so it never appears again.
+ * Manages one-time, non-intrusive prompts shown after usage milestones.
+ * All state is persisted to ~/.gemini/hud-prompts.json.
+ *
+ * - Star prompt: after 5 sessions, ask user to star the repo
+ * - Quota hint: after 15 sessions (if quotaApi not enabled), suggest
+ *   enabling quotaApi for precise subscription tier display
  */
 import fs from 'fs';
 import path from 'path';
@@ -11,28 +14,43 @@ import path from 'path';
 const REPO_URL = 'https://github.com/yideng-xl/gemini-cli-hud';
 /** Number of sessions before showing the star prompt */
 export const SESSION_THRESHOLD = 5;
+/** Number of sessions before showing the quota API hint */
+export const QUOTA_HINT_THRESHOLD = 15;
 // ─── Persistence ────────────────────────────────────────────────────────────
 export function getStarStatePath() {
     const home = process.env['HOME'] || '';
-    return path.join(home, '.gemini', 'hud-star.json');
+    // Check new path first, fall back to legacy path
+    const newPath = path.join(home, '.gemini', 'hud-prompts.json');
+    const legacyPath = path.join(home, '.gemini', 'hud-star.json');
+    if (fs.existsSync(newPath))
+        return newPath;
+    if (fs.existsSync(legacyPath))
+        return legacyPath;
+    return newPath;
 }
 export function loadStarState() {
     try {
-        const p = getStarStatePath();
+        // Try new path, then legacy
+        const home = process.env['HOME'] || '';
+        const newPath = path.join(home, '.gemini', 'hud-prompts.json');
+        const legacyPath = path.join(home, '.gemini', 'hud-star.json');
+        const p = fs.existsSync(newPath) ? newPath : legacyPath;
         if (fs.existsSync(p)) {
             const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
             return {
                 sessionCount: typeof raw.sessionCount === 'number' ? raw.sessionCount : 0,
                 prompted: typeof raw.prompted === 'boolean' ? raw.prompted : false,
+                quotaHintShown: typeof raw.quotaHintShown === 'boolean' ? raw.quotaHintShown : false,
             };
         }
     }
     catch { /* ignore corrupt file */ }
-    return { sessionCount: 0, prompted: false };
+    return { sessionCount: 0, prompted: false, quotaHintShown: false };
 }
 export function saveStarState(state) {
     try {
-        const p = getStarStatePath();
+        const home = process.env['HOME'] || '';
+        const p = path.join(home, '.gemini', 'hud-prompts.json');
         const dir = path.dirname(p);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -60,7 +78,15 @@ export function markPrompted() {
     state.prompted = true;
     saveStarState(state);
 }
-// ─── Prompt rendering ───────────────────────────────────────────────────────
+/**
+ * Mark the quota API hint as shown so it never appears again.
+ */
+export function markQuotaHintShown() {
+    const state = loadStarState();
+    state.quotaHintShown = true;
+    saveStarState(state);
+}
+// ─── Star prompt ────────────────────────────────────────────────────────────
 /**
  * Check if the star prompt should be shown this session.
  */
@@ -80,6 +106,32 @@ export function renderStarPrompt(state, lang = 'en', cols = 80) {
     };
     const msg = messages[lang];
     // Center the message
+    const pad = Math.max(0, Math.floor((cols - msg.length) / 2));
+    return `\x1b[2m${' '.repeat(pad)}${msg}\x1b[0m`;
+}
+// ─── Quota API hint ─────────────────────────────────────────────────────────
+/**
+ * Check if the quota API hint should be shown this session.
+ * Only shown when quotaApi is not yet enabled.
+ */
+export function shouldShowQuotaHint(state, quotaApiEnabled) {
+    if (quotaApiEnabled)
+        return false; // already enabled, no need
+    if (state.quotaHintShown)
+        return false; // already shown once
+    return state.sessionCount >= QUOTA_HINT_THRESHOLD;
+}
+/**
+ * Render the quota API hint line for the HUD.
+ */
+export function renderQuotaHint(state, quotaApiEnabled, lang = 'en', cols = 80) {
+    if (!shouldShowQuotaHint(state, quotaApiEnabled))
+        return null;
+    const messages = {
+        en: 'Want to see your subscription tier? Add "quotaApi": true to ~/.gemini/hud.json',
+        zh: '想查看订阅等级？在 ~/.gemini/hud.json 中添加 "quotaApi": true',
+    };
+    const msg = messages[lang];
     const pad = Math.max(0, Math.floor((cols - msg.length) / 2));
     return `\x1b[2m${' '.repeat(pad)}${msg}\x1b[0m`;
 }
