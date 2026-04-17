@@ -259,6 +259,24 @@ async function _doFetch() {
     }
     return cachedQuota;
 }
+// ─── Local-only account info (no API calls, no token refresh) ──────────
+/**
+ * Read account info from local files only — zero network requests.
+ * This is the default behavior when quotaApi is false.
+ * Returns account name from google_accounts.json and detects auth type
+ * from environment variables / local config files.
+ */
+export function getLocalAccountInfo() {
+    const account = readActiveAccount();
+    if (!account)
+        return null;
+    // Try to detect tier from local files only (no API call)
+    // If oauth_creds.json exists, user is using OAuth (likely Pro or Free)
+    // If GOOGLE_API_KEY / GEMINI_API_KEY exists, user is using API key
+    const creds = readOAuthToken();
+    const tier = creds ? 'OAuth' : 'API';
+    return { tier, account, models: [] };
+}
 // ─── Formatting ─────────────────────────────────────────────────────────────
 export function formatQuotaModule(info) {
     const dim = '\x1b[90m';

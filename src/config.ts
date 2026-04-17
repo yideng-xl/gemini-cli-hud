@@ -46,6 +46,17 @@ export interface HudConfig {
   display: HudDisplay;
   preset: Preset;
   language: 'en' | 'zh';
+  /**
+   * Enable quota API calls (loadCodeAssist) to fetch precise subscription tier.
+   *
+   * When false (default): only reads local files (~/.gemini/google_accounts.json)
+   * for account name. No network requests, no token refresh, no authorization popups.
+   *
+   * When true: uses existing OAuth credentials to call Google's API for tier info
+   * (Pro/Free/Ultra). This reuses Gemini CLI's own credentials — HUD never triggers
+   * new authorization flows.
+   */
+  quotaApi: boolean;
 }
 
 // ─── Presets ────────────────────────────────────────────────────────────────
@@ -111,6 +122,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   display: PRESET_DISPLAY.full,
   preset: 'full',
   language: 'en',
+  quotaApi: false,
 };
 
 // ─── Validation helpers ─────────────────────────────────────────────────────
@@ -178,6 +190,11 @@ export function loadConfig(): HudConfig {
   // Language
   if (raw['language'] === 'en' || raw['language'] === 'zh') {
     config.language = raw['language'];
+  }
+
+  // Quota API opt-in (default: false — no network requests)
+  if (typeof raw['quotaApi'] === 'boolean') {
+    config.quotaApi = raw['quotaApi'];
   }
 
   return config;

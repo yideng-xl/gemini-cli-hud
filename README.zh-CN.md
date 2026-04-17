@@ -220,6 +220,27 @@ gemini extensions install https://github.com/yideng-xl/gemini-cli-hud
 { "language": "zh" }
 ```
 
+### 订阅与账号显示
+
+默认情况下，HUD **仅读取本地文件**（`~/.gemini/google_accounts.json`）来显示账号名。**不发送任何网络请求、不刷新 Token、不弹出授权框。** 如果本地没有账号文件，该模块会静默隐藏 — 所有其他 HUD 功能正常运行。
+
+如果你希望看到精确的订阅等级（Pro / Free / Ultra），可以在配置中明确开启 quota API：
+
+```json
+{ "quotaApi": true }
+```
+
+开启后的行为：读取 Gemini CLI 已有的 OAuth 凭据（`~/.gemini/oauth_creds.json`），调用 Google 的 `loadCodeAssist` API 获取订阅等级。**HUD 绝不会触发新的授权流程** — 它只复用 Gemini CLI 已经获取的 Token。如果凭据缺失或过期，会自动回退到本地模式。
+
+### 隐私说明
+
+HUD **不收集任何用户数据**，所有信息都保留在你的本地机器上：
+
+- **账号名**：从 `~/.gemini/google_accounts.json` 读取（Gemini CLI 创建的本地文件）
+- **订阅等级**（仅限 opt-in 开启时）：通过 Google API 使用你已有的 Gemini CLI 凭据获取
+- **会话计数**：保存在 `~/.gemini/hud-star.json`（用于一次性 star 提示）
+- **无遥测、无分析、不向任何第三方发送数据**
+
 ## 架构
 
 ```

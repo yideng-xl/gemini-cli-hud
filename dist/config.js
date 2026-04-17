@@ -65,6 +65,7 @@ export const DEFAULT_CONFIG = {
     display: PRESET_DISPLAY.full,
     preset: 'full',
     language: 'en',
+    quotaApi: false,
 };
 // ─── Validation helpers ─────────────────────────────────────────────────────
 const VALID_MODULES = new Set([
@@ -120,6 +121,10 @@ export function loadConfig() {
     // Language
     if (raw['language'] === 'en' || raw['language'] === 'zh') {
         config.language = raw['language'];
+    }
+    // Quota API opt-in (default: false — no network requests)
+    if (typeof raw['quotaApi'] === 'boolean') {
+        config.quotaApi = raw['quotaApi'];
     }
     return config;
 }

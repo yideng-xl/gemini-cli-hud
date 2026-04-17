@@ -31,7 +31,7 @@ import {
 import { loadConfig, type HudConfig } from './config.js';
 import { parseGitStatus, formatGitModule } from './git-utils.js';
 import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
-import { getQuotaWithCache, formatQuotaModule, type QuotaInfo } from './quota.js';
+import { getQuotaWithCache, getLocalAccountInfo, formatQuotaModule, type QuotaInfo } from './quota.js';
 import { formatTaskModule } from './task-utils.js';
 import { recordSession, markPrompted, renderStarPrompt, shouldShowStarPrompt, type StarState } from './star-prompt.js';
 
@@ -290,8 +290,14 @@ function handleEvent(event: Record<string, unknown>): void {
     starState = recordSession();
   }
   if (event['hook_event_name'] === 'SessionStart' || event['hook_event_name'] === 'AfterModel') {
-    // Fire and forget — don't block rendering
-    getQuotaWithCache().then(q => { quotaState = q; }).catch(() => {});
+    const config = loadConfig();
+    if (config.quotaApi) {
+      // Opt-in: call Google API for precise tier info (Pro/Free/Ultra)
+      getQuotaWithCache().then(q => { quotaState = q; }).catch(() => {});
+    } else {
+      // Default: read local files only — no network, no token refresh, no popups
+      quotaState = getLocalAccountInfo();
+    }
   }
 }
 

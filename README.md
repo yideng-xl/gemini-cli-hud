@@ -220,6 +220,27 @@ Fine-grained control over sub-elements within modules:
 { "language": "zh" }
 ```
 
+### Subscription & Account Display
+
+By default, the HUD reads **only local files** (`~/.gemini/google_accounts.json`) to show your account name. **No network requests, no token refresh, no authorization popups.** If no account file exists, the module is simply hidden — all other HUD features work normally.
+
+If you want to see your precise subscription tier (Pro / Free / Ultra), you can opt in to the quota API by adding `"quotaApi": true` to your config:
+
+```json
+{ "quotaApi": true }
+```
+
+What this does: reads existing Gemini CLI OAuth credentials (from `~/.gemini/oauth_creds.json`) and calls Google's `loadCodeAssist` API to fetch your subscription tier. **HUD never triggers new authorization flows** — it only reuses tokens that Gemini CLI has already obtained. If credentials are missing or expired, the module gracefully falls back to local-only mode.
+
+### Privacy
+
+The HUD collects **zero** user data. Everything stays on your machine:
+
+- **Account name**: Read from `~/.gemini/google_accounts.json` (local file created by Gemini CLI)
+- **Subscription tier** (opt-in only): Fetched via Google API using your existing Gemini CLI credentials
+- **Session count**: Stored locally in `~/.gemini/hud-star.json` (for the one-time star prompt)
+- **No telemetry, no analytics, no data sent to third parties**
+
 ## Architecture
 
 ```
