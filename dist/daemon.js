@@ -15,6 +15,7 @@ import { parseGitStatus, formatGitModule } from './git-utils.js';
 import { getMemoryUsage, formatMemoryModule } from './memory-utils.js';
 import { getQuotaWithCache, formatQuotaModule } from './quota.js';
 import { formatTaskModule } from './task-utils.js';
+import { recordSession, markPrompted, renderStarPrompt, shouldShowStarPrompt } from './star-prompt.js';
 const SOCKET_PATH = process.argv[2] || '/tmp/gemini-cli-hud.sock';
 const HUD_HEIGHT = 2;
 // Get workspace name from CWD
@@ -28,6 +29,7 @@ function log(msg) {
 }
 let state = createInitialState();
 let quotaState = null;
+let starState = { sessionCount: 0, prompted: false };
 // Cached terminal size from hook (hook has access to real /dev/tty)
 const cachedTermSize = { rows: 0, cols: 0 };
 function getTerminalSize() {
@@ -218,7 +220,18 @@ function buildHUDBar() {
         }
     }
     const contentLines = packModulesIntoLines(modules, cols);
-    return [buildSeparator(cols), ...contentLines];
+    const lines = [buildSeparator(cols), ...contentLines];
+    // Append star prompt if conditions are met (shown once, then never again)
+    if (shouldShowStarPrompt(starState)) {
+        const starLine = renderStarPrompt(starState, config.language, cols);
+        if (starLine) {
+            lines.push(starLine);
+            // Mark as prompted so it only shows once
+            markPrompted();
+            starState.prompted = true;
+        }
+    }
+    return lines;
 }
 // ─── Event processing ───────────────────────────────────────────────────────
 // Auto-exit after 10 minutes of inactivity (prevents stale daemons)
@@ -236,6 +249,9 @@ function handleEvent(event) {
     if (event['_termRows'])
         cachedTermSize.rows = event['_termRows'];
     state = processEvent(state, event);
+    if (event['hook_event_name'] === 'SessionStart') {
+        starState = recordSession();
+    }
     if (event['hook_event_name'] === 'SessionStart' || event['hook_event_name'] === 'AfterModel') {
         // Fire and forget — don't block rendering
         getQuotaWithCache().then(q => { quotaState = q; }).catch(() => { });
