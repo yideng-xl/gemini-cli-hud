@@ -74,13 +74,17 @@ function cleanupHUD() {
     // Reset DECSTBM scroll region and clear HUD area
     try {
         const { rows } = getTerminalSize();
-        let seq = '\x1b7'; // save cursor
-        seq += '\x1b[r'; // reset scroll region to full terminal
+        let seq = '\x1b[?2026h'; // Begin synchronized output
+        seq += '\x1b7'; // save cursor
+        seq += '\x1b[?25l'; // hide cursor
         // Clear bottom rows where HUD was
         for (let i = rows - 3; i <= rows; i++) {
             seq += `\x1b[${i};1H\x1b[2K`;
         }
+        seq += '\x1b[r'; // reset scroll region to full terminal
+        seq += '\x1b[?25h'; // show cursor
         seq += '\x1b8'; // restore cursor
+        seq += '\x1b[?2026l'; // End synchronized output
         fs.writeFileSync('/dev/tty', seq);
     }
     catch { /* ignore */ }
@@ -104,6 +108,8 @@ function getTerminalSize() {
     catch { }
     return { rows: 24, cols: 80 };
 }
+// Track previous scroll region to avoid unnecessary resets
+let prevScrollBottom = 0;
 function renderHUD(bar) {
     const { rows } = getTerminalSize();
     const hudHeight = bar.length;
@@ -111,18 +117,32 @@ function renderHUD(bar) {
     if (scrollBottom < 4)
         return; // terminal too small
     let seq = '';
+    // Begin Synchronized Output — Ghostty/kitty/WezTerm batch all writes
+    // into a single frame, eliminating flicker and ghosting
+    seq += '\x1b[?2026h';
     seq += '\x1b7'; // DECSC: save cursor
-    seq += '\x1b[r'; // Reset scroll region (clear old)
-    // Clear all rows from new HUD position to bottom
-    for (let i = scrollBottom + 1; i <= rows; i++) {
-        seq += `\x1b[${i};1H\x1b[2K`;
-    }
+    seq += '\x1b[?25l'; // Hide cursor during update
+    // Set scroll region directly — skip \x1b[r reset to avoid the brief
+    // "full-screen scrollable" intermediate state that causes ghosting
     seq += `\x1b[1;${scrollBottom}r`; // DECSTBM: set scroll region
+    // Clear and write HUD lines (outside the scroll region)
     for (let i = 0; i < bar.length; i++) {
-        seq += `\x1b[${scrollBottom + 1 + i};1H`; // CUP: move to HUD row
-        seq += bar[i];
+        const row = scrollBottom + 1 + i;
+        seq += `\x1b[${row};1H`; // CUP: move to HUD row
+        seq += '\x1b[2K'; // EL: clear entire line first
+        seq += bar[i]; // Write content
     }
+    // Clear any leftover rows if HUD height shrunk
+    if (prevScrollBottom > 0 && prevScrollBottom < scrollBottom) {
+        for (let i = prevScrollBottom + 1; i <= scrollBottom; i++) {
+            seq += `\x1b[${i};1H\x1b[2K`;
+        }
+    }
+    prevScrollBottom = scrollBottom;
+    seq += '\x1b[?25h'; // Show cursor
     seq += '\x1b8'; // DECRC: restore cursor
+    // End Synchronized Output — terminal renders everything at once
+    seq += '\x1b[?2026l';
     try {
         fs.writeFileSync('/dev/tty', seq);
     }
